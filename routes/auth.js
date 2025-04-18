@@ -37,6 +37,42 @@ router.get('/google/callback',
     }
 );
 
+/**
+ * @swagger
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user and send OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - role
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [customer, vendor]
+ *     responses:
+ *       200:
+ *         description: Registration successful, OTP sent
+ *       400:
+ *         description: User already exists or password invalid
+ *       500:
+ *         description: Server error
+ */
 // Register Route with OTP
 router.post('/register', async (req, res) => {
     const { name, email, password, role } = req.body;
@@ -71,6 +107,32 @@ router.post('/register', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /auth/verify-otp:
+ *   post:
+ *     summary: Verify user's email with OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, otp]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ *       500:
+ *         description: Server error
+ */
 // Verify OTP Route
 router.post('/verify-otp', otpLimiter, async (req, res) => {
     const { email, otp } = req.body;
@@ -97,6 +159,32 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /auth/resend-otp:
+ *   post:
+ *     summary: Resend OTP to user's email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: OTP resent successfully
+ *       400:
+ *         description: User not found or already verified
+ *       500:
+ *         description: Server error
+ */
 // Resend OTP Route
 router.post('/resend-otp', otpLimiter, async (req, res) => {
     const { email } = req.body;
@@ -124,6 +212,34 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: Log in a user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful, returns JWT and user data
+ *       400:
+ *         description: Invalid credentials
+ *       403:
+ *         description: Account not verified
+ *       500:
+ *         description: Server error
+ */
 // Login Route
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
@@ -150,6 +266,33 @@ router.post('/login', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /auth/forgot-password:
+ *   post:
+ *     summary: Send a password reset link to the user's email
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Reset email sent successfully
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+// Forgot Password Route
 router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
 
@@ -179,6 +322,46 @@ router.post("/forgot-password", async (req, res) => {
     res.status(200).json({ message: "Reset email sent" });
 });
 
+/**
+ * @swagger
+ * /auth/reset-password/{token}:
+ *   post:
+ *     summary: Reset the user's password using a valid token
+ *     tags: [Auth]
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         description: The reset token sent to the user's email
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               newPassword:
+ *                 type: string
+ *                 description: The new password to be set
+ *                 example: "NewPassword123!"
+ *               confirmPassword:
+ *                 type: string
+ *                 description: The confirmation of the new password
+ *                 example: "NewPassword123!"
+ *     responses:
+ *       200:
+ *         description: Password has been reset successfully
+ *       400:
+ *         description: Invalid or expired token, or passwords do not match
+ *       500:
+ *         description: Server error
+ */
+// Reset Password Route
 router.post("/reset-password/:token", async (req, res) => {
     const { newPassword, confirmPassword } = req.body;
 
