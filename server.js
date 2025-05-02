@@ -20,7 +20,7 @@ require('./config/passport')(passport);
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
-
+app.use('/api/vendor', require('./routes/vendor'));
 
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
