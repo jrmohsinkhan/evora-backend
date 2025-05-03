@@ -18,8 +18,11 @@ connectDB();
 app.use(passport.initialize());
 require('./config/passport')(passport);
 
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
 // Routes
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/customer/auth', require('./routes/customer/auth'));
 app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/reviews', require('./routes/reviews'));
 

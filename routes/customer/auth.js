@@ -1,38 +1,29 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const sendEmail = require('../utils/sendEmail');
-const generateOtp = require('../utils/generateOtp');
+const Customer = require('../../models/customer');
+const sendEmail = require('../../utils/sendEmail');
+const generateOtp = require('../../utils/generateOtp');
 const rateLimit = require('express-rate-limit');
 const passport = require('passport');
 const crypto = require("crypto");
+const otpLimiter = require('../../utils/rateLimiter');
 require('dotenv').config();
 
 const router = express.Router();
 
-// OTP Verification Rate Limit
-const otpLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    max: 5, // Limit each IP to 5 requests per windowMs
-    message: 'Too many OTP requests, please try again later',
-    standardHeaders: true,
-    legacyHeaders: false,
-});
 
-// Start Google OAuth flow
-router.get('/google',
-    passport.authenticate('google', { scope: ['profile', 'email'] })
+
+// Customer Google OAuth Routes
+router.get('/google/customer',
+    passport.authenticate('google-customer', { scope: ['profile', 'email'] })
 );
 
-// Google OAuth callback
-router.get('/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: '/' }),
+router.get('/google/customer/callback',
+    passport.authenticate('google-customer', { session: false, failureRedirect: '/' }),
     (req, res) => {
-        const user = req.user;
-        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-        // Optional: redirect with token in query (for mobile/web frontend)
+        const customer = req.user;
+        const token = jwt.sign({ id: customer._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
         res.redirect(`http://localhost:3000/oauth-success?token=${token}`);
     }
 );
@@ -41,7 +32,7 @@ router.get('/google/callback',
  * @swagger
  * /auth/register:
  *   post:
- *     summary: Register a new user and send OTP
+ *     summary: Register a new customer and send OTP
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -75,10 +66,10 @@ router.get('/google/callback',
  */
 // Register Route with OTP
 router.post('/register', async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, confirmPassword } = req.body;  // Added confirmPassword
 
     try {
-        // Password Validation - Before hashing it
+        // Password Validation - Before checking if passwords match
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
         if (!passwordRegex.test(password)) {
             return res.status(400).json({
@@ -86,19 +77,41 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        let user = await User.findOne({ email });
-        if (user) return res.status(400).json({ msg: 'User already exists' });
+        // Check if passwords match
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                msg: 'Passwords do not match',
+            });
+        }
 
+        // Check if the customer already exists
+        let customer = await Customer.findOne({ email });
+        if (customer) return res.status(400).json({ msg: 'User already exists' });
+
+        // Hash the password before saving
         const hashedPassword = await bcrypt.hash(password, 10);
-        const otp = generateOtp();
-        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 mins
 
-        user = new User({ name, email, password: hashedPassword, role, otp, otpExpires, provider: 'email' });
-        await user.save();
+        // Generate OTP and expiration
+        const otp = generateOtp();
+        const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // OTP expires in 10 minutes
+
+        // Create a new customer instance
+        customer = new Customer({
+            name,
+            email,
+            password: hashedPassword,
+            otp,
+            otpExpires,
+            provider: 'email', // We use 'email' as provider here.
+        });
+
+        // Save the customer to the database
+        await customer.save();
 
         // Send OTP Email
         await sendEmail(email, 'Evora OTP Verification', `Your OTP is: ${otp}`);
 
+        // Respond to the client
         res.json({ msg: 'Registration successful. Please check your email for OTP.' });
 
     } catch (err) {
@@ -107,11 +120,12 @@ router.post('/register', async (req, res) => {
     }
 });
 
+
 /**
  * @swagger
  * /auth/verify-otp:
  *   post:
- *     summary: Verify user's email with OTP
+ *     summary: Verify customer's email with OTP
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -138,18 +152,18 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
     const { email, otp } = req.body;
 
     try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'User not found' });
-        if (user.isVerified) return res.status(400).json({ msg: 'User already verified' });
+        const customer = await Customer.findOne({ email });
+        if (!customer) return res.status(400).json({ msg: 'User not found' });
+        if (customer.isVerified) return res.status(400).json({ msg: 'User already verified' });
 
-        if (user.otp !== otp || user.otpExpires < Date.now()) {
+        if (customer.otp !== otp || customer.otpExpires < Date.now()) {
             return res.status(400).json({ msg: 'Invalid or expired OTP' });
         }
 
-        user.isVerified = true;
-        user.otp = null;
-        user.otpExpires = null;
-        await user.save();
+        customer.isVerified = true;
+        customer.otp = null;
+        customer.otpExpires = null;
+        await customer.save();
 
         res.json({ msg: 'Email verified successfully. You can now log in.' });
 
@@ -163,7 +177,7 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
  * @swagger
  * /auth/resend-otp:
  *   post:
- *     summary: Resend OTP to user's email
+ *     summary: Resend OTP to customer's email
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -190,16 +204,19 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
     const { email } = req.body;
 
     try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'User not found' });
+        const customer = await Customer.findOne({ email });
+        if (!customer) return res.status(400).json({ msg: 'User not found' });
+
+        // Check if the customer is already verified
+        if (customer.isVerified) return res.status(400).json({ msg: 'User already verified' });
 
         // Generate new OTP
         const newOtp = generateOtp();
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // Valid for 10 minutes
 
-        user.otp = newOtp;
-        user.otpExpires = otpExpires;
-        await user.save();
+        customer.otp = newOtp;
+        customer.otpExpires = otpExpires;
+        await customer.save();
 
         // Send OTP via email (implement email sending here)
         await sendEmail(email, 'Evora OTP Verification', `Your OTP is: ${newOtp}`);
@@ -216,7 +233,7 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Log in a user
+ *     summary: Log in a customer
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -232,7 +249,7 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
  *                 type: string
  *     responses:
  *       200:
- *         description: Login successful, returns JWT and user data
+ *         description: Login successful, returns JWT and customer data
  *       400:
  *         description: Invalid credentials
  *       403:
@@ -241,28 +258,60 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
  *         description: Server error
  */
 // Login Route
-router.post('/login', async (req, res) => {
+router.post('/login', otpLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
+        const customer = await Customer.findOne({ email });
+        if (!customer) return res.status(400).json({ msg: 'Invalid credentials' });
 
-        // Check if the user is verified
-        console.log(!user.isVerified);
-        if (!user.isVerified) {
+        if (!customer.isVerified) {
             return res.status(403).json({ msg: 'Account not verified. Please verify your email.' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
+        const isMatch = await bcrypt.compare(password, customer.password);
+        if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
-        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        // Create JWT Token
+        const token = jwt.sign({ id: customer._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.json({ token, user });
+        // Set token in HttpOnly cookie
+        res.cookie('token_customer', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict', // Or 'Lax' if your frontend/backend are on different subdomains
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
+        });
+
+        // You can still return basic user info (without token)
+        res.status(200).json({
+            msg: 'Login successful',
+            customer: {
+                id: customer._id,
+                name: customer.name,
+                email: customer.email
+            }
+        });
+
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
+    }
+});
+// From frontend, make sure requests have: credentials: 'include' (if using fetch) or axios.defaults.withCredentials = true.
+
+// Logout Route
+router.post('/logout', (req, res) => {
+    try {
+      res.clearCookie('token_customer', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict'
+      });
+      res.status(200).json({ msg: 'Logged out successfully' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ msg: 'Server error' });
     }
 });
 
@@ -270,7 +319,7 @@ router.post('/login', async (req, res) => {
  * @swagger
  * /auth/forgot-password:
  *   post:
- *     summary: Send a password reset link to the user's email
+ *     summary: Send a password reset link to the customer's email
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -293,19 +342,23 @@ router.post('/login', async (req, res) => {
  *         description: Server error
  */
 // Forgot Password Route
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password",otpLimiter, async (req, res) => {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const customer = await Customer.findOne({ email });
+    if (!customer) return res.status(404).json({ message: "User not found" });
+
+    if (!customer.isVerified) {
+        return res.status(403).json({ msg: 'Account not verified. Please verify your email first.' });
+    }
 
     // Generate token
     const resetToken = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
 
-    user.resetPasswordToken = tokenHash;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
+    customer.resetPasswordToken = tokenHash;
+    customer.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await customer.save();
 
     // Email content
     const resetURL = `http://localhost:3000/reset-password/${resetToken}`;
@@ -317,7 +370,7 @@ router.post("/forgot-password", async (req, res) => {
         If you did not request this, please ignore this email.
     `;
 
-    await sendEmail(user.email, 'Evora Password Reset', message);
+    await sendEmail(customer.email, 'Evora Password Reset', message);
 
     res.status(200).json({ message: "Reset email sent" });
 });
@@ -326,12 +379,12 @@ router.post("/forgot-password", async (req, res) => {
  * @swagger
  * /auth/reset-password/{token}:
  *   post:
- *     summary: Reset the user's password using a valid token
+ *     summary: Reset the customer's password using a valid token
  *     tags: [Auth]
  *     parameters:
  *       - name: token
  *         in: path
- *         description: The reset token sent to the user's email
+ *         description: The reset token sent to the customer's email
  *         required: true
  *         schema:
  *           type: string
@@ -374,24 +427,28 @@ router.post("/reset-password/:token", async (req, res) => {
         return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    // Step 2: Hash the token and find user
+    // Step 2: Hash the token and find customer
     const tokenHash = crypto.createHash("sha256").update(req.params.token).digest("hex");
 
-    const user = await User.findOne({
+    const customer = await Customer.findOne({
         resetPasswordToken: tokenHash,
         resetPasswordExpires: { $gt: Date.now() },
     });
 
-    if (!user) {
+    if (!customer) {
         return res.status(400).json({ message: "Invalid or expired token" });
     }
 
-    // Step 3: Set new password and clear reset fields
-    user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    if (!customer.isVerified) {
+        return res.status(403).json({ msg: 'Account not verified. Please verify your email first.' });
+    }
 
-    await user.save();
+    // Step 3: Set new password and clear reset fields
+    customer.password = newPassword;
+    customer.resetPasswordToken = undefined;
+    customer.resetPasswordExpires = undefined;
+
+    await customer.save();
 
     res.status(200).json({ message: "✅ Password has been reset successfully" });
 });
