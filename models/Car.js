@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const CarServiceSchema = new mongoose.Schema({
     vendorId: { type: String, required: true },
-    title: { type: String, required: true },
     description: { type: String },
     location: { type: String },
     pricePerUnit: { type: Number },
