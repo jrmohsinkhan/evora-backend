@@ -53,7 +53,7 @@ const VendorSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  numReviews: {
+  numberOfReviews: {
     type: Number,
     default: 0
   },
