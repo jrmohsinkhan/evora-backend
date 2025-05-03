@@ -1,120 +1,109 @@
 const express = require('express');
-const router = express.Router()
-const Hall = require('../models/Hall')
+const router = express.Router();
+const Hall = require('../models/Hall');
 
-// Input validation middleware
-const validateReviewInput = (req, res, next) => {
-    const { rating, comment } = req.body
-    if (rating < 1 || rating > 5) {
-        return res.status(400).json({ message: 'Rating must be between 1 and 5' })
-    }
-    if (!comment || comment.trim().length === 0) {
-        return res.status(400).json({ message: 'Comment is required' })
-    }
-    next()
-}
-
+// Create a new hall
 router.post('/create', async (req, res) => {
     try {
         const {
-            title,
+            vendorId,
+            name,
+            type,
             description,
             location,
-            pricePerUnit,
-            images,
+            price,
+            price_per_person,
+            rating,
+            reviews,
             capacity,
+            timing,
+            image,
+            images,
+            video,
             hasParking,
             indoor,
-            vendorId
-        } = req.body
+        } = req.body;
 
         // Validate required fields
-        if (!title || !vendorId || !pricePerUnit) {
-            return res.status(400).json({ message: 'Missing required fields' })
+        if (!vendorId || !name || !type || price === undefined) {
+            return res.status(400).json({ message: 'Missing required fields' });
         }
 
         const hall = await Hall.create({
-            title,
+            vendorId,
+            name,
+            type,
             description,
             location,
-            pricePerUnit,
-            images: images || [],
+            price,
+            price_per_person,
+            rating,
+            reviews,
             capacity,
+            timing,
+            image,
+            images: images || [],
+            video,
             hasParking,
             indoor,
-            vendorId
-        })
-        res.status(201).json(hall)
+        });
+
+        res.status(201).json(hall);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
+// Get all halls
 router.get('/', async (req, res) => {
-    try{
-        const halls = await Hall.find()
-        res.status(200).json(halls)
-    }catch(e){
-        res.status(500).json({message: e.message})
+    try {
+        const halls = await Hall.find();
+        res.status(200).json(halls);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
+// Get a specific hall by ID
 router.get('/:id', async (req, res) => {
-    try{
-        const {id} = req.params
-        const hall = await Hall.findById(id)
-        res.status(200).json(hall)
-    }catch(e){
-        res.status(500).json({message: e.message})
+    try {
+        const { id } = req.params;
+        const hall = await Hall.findById(id);
+        if (!hall) {
+            return res.status(404).json({ message: 'Hall not found' });
+        }
+        res.status(200).json(hall);
+    } catch (e) {
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
+// Update a hall
 router.put('/:id', async (req, res) => {
     try {
-        const { id } = req.params
-        const {
-            title,
-            description,
-            location,
-            pricePerUnit,
-            images,
-            capacity,
-            hasParking,
-            indoor
-        } = req.body
+        const { id } = req.params;
+        const updateData = req.body;
 
-        const hall = await Hall.findByIdAndUpdate(
-            id,
-            {
-                title,
-                description,
-                location,
-                pricePerUnit,
-                images: images || [],
-                capacity,
-                hasParking,
-                indoor
-            },
-            { new: true }
-        )
+        const hall = await Hall.findByIdAndUpdate(id, updateData, { new: true });
         if (!hall) {
-            return res.status(404).json({ message: 'Hall service not found' })
+            return res.status(404).json({ message: 'Hall not found' });
         }
-        res.status(200).json(hall)
+
+        res.status(200).json(hall);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
+// Delete a hall
 router.delete('/:id', async (req, res) => {
-    try{
-        const {id} = req.params
-        await Hall.findByIdAndDelete(id)
-        res.status(200).json({message: 'Hall deleted successfully'})
-    }catch(e){
-        res.status(500).json({message: e.message})
+    try {
+        const { id } = req.params;
+        await Hall.findByIdAndDelete(id);
+        res.status(200).json({ message: 'Hall deleted successfully' });
+    } catch (e) {
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
-
-module.exports = router
+module.exports = router;

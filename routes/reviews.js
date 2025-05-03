@@ -1,11 +1,17 @@
 const express = require('express')
 const router = express.Router()
 const Review = require('../models/Review')
-const Vendor = require('../models/Vendor')
+const Vendor = require('../models/vendor')
 const Car = require('../models/Car')
 const Catering = require('../models/Catering')
 const Hall = require('../models/Hall')
+const Decoration = require('../models/Decoration')
 const mongoose = require('mongoose')
+
+// Helper function for rating calculation
+function calculateNewRating(currentRating, numberOfReviews, newRating) {
+    return ((currentRating * numberOfReviews) + newRating) / (numberOfReviews + 1)
+}
 
 router.post('/car/create', async (req, res) => {
     const session = await mongoose.startSession()
@@ -55,11 +61,6 @@ router.post('/car/create', async (req, res) => {
         session.endSession()
     }
 })
-
-// Helper function for rating calculation
-function calculateNewRating(currentRating, numberOfReviews, newRating) {
-    return ((currentRating * numberOfReviews) + newRating) / (numberOfReviews + 1)
-}
 
 router.get('/:id/car', async (req, res) => {
     try {
@@ -451,6 +452,157 @@ router.delete('/hall/:id', async (req, res) => {
             await hall.save({ session })
 
             const vendor = await Vendor.findById(hall.vendorId)
+            if (vendor && vendor.numberOfReviews > 1) {
+                vendor.rating = ((vendor.rating * vendor.numberOfReviews) - oldRating) / (vendor.numberOfReviews - 1)
+                vendor.numberOfReviews -= 1
+                await vendor.save({ session })
+            }
+        }
+
+        await session.commitTransaction()
+        res.status(200).json({ message: 'Review deleted successfully' })
+    } catch (e) {
+        await session.abortTransaction()
+        res.status(500).json({ message: e.message })
+    } finally {
+        session.endSession()
+    }
+})
+
+router.post('/decoration/create', async (req, res) => {
+    const session = await mongoose.startSession()
+    session.startTransaction()
+
+    try {
+        const { decorationId, userId, rating, comment } = req.body
+
+        // Validate if decoration exists
+        const decoration = await Decoration.findById(decorationId)
+        if (!decoration) {
+            throw new Error('Decoration not found')
+        }
+
+        const review = await Review.create([{
+            decorationId,
+            userId,
+            rating,
+            comment,
+            serviceType: 'decoration'
+        }], { session })
+
+        // Update decoration rating
+        const newDecorationRating = calculateNewRating(decoration.rating, decoration.numberOfReviews, rating)
+        decoration.rating = newDecorationRating
+        decoration.numberOfReviews += 1
+        await decoration.save({ session })
+
+        // Update vendor rating
+        const vendor = await Vendor.findById(decoration.vendorId)
+        if (vendor) {
+            vendor.rating = calculateNewRating(vendor.rating, vendor.numberOfReviews, rating)
+            vendor.numberOfReviews += 1
+            await vendor.save({ session })
+        }
+
+        await session.commitTransaction()
+        res.status(201).json(review[0])
+    } catch (e) {
+        await session.abortTransaction()
+        res.status(500).json({ 
+            message: 'Failed to create review', 
+            error: e.message 
+        })
+    } finally {
+        session.endSession()
+    }
+})
+
+router.get('/:id/decoration', async (req, res) => {
+    try {
+        const { id } = req.params
+        const reviews = await Review.find({ decorationId: id, serviceType: 'decoration' })
+        res.status(200).json(reviews)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
+
+router.get('/decoration/:id', async (req, res) => {
+    try {
+        const { id } = req.params
+        const review = await Review.findById(id)
+        res.status(200).json(review)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
+
+router.put('/decoration/:id', async (req, res) => {
+    const session = await mongoose.startSession()
+    session.startTransaction()
+
+    try {
+        const { id } = req.params
+        const { rating, comment } = req.body
+
+        const review = await Review.findById(id)
+        if (!review) {
+            throw new Error('Review not found')
+        }
+
+        const oldRating = review.rating
+        review.rating = rating
+        review.comment = comment
+        await review.save({ session })
+
+        const decoration = await Decoration.findById(review.decorationId)
+        if (decoration) {
+            decoration.rating = ((decoration.rating * decoration.numberOfReviews) - oldRating + rating) / decoration.numberOfReviews
+            await decoration.save({ session })
+
+            const vendor = await Vendor.findById(decoration.vendorId)
+            if (vendor) {
+                vendor.rating = ((vendor.rating * vendor.numberOfReviews) - oldRating + rating) / vendor.numberOfReviews
+                await vendor.save({ session })
+            }
+        }
+
+        await session.commitTransaction()
+        res.status(200).json(review)
+    } catch (e) {
+        await session.abortTransaction()
+        res.status(500).json({ 
+            message: 'Failed to update review', 
+            error: e.message 
+        })
+    } finally {
+        session.endSession()
+    }
+})
+
+router.delete('/decoration/:id', async (req, res) => {
+    const session = await mongoose.startSession()
+    session.startTransaction()
+
+    try {
+        const { id } = req.params
+        
+        const review = await Review.findById(id)
+        if (!review) {
+            throw new Error('Review not found')
+        }
+
+        const oldRating = review.rating
+
+        await Review.findByIdAndDelete(id, { session })
+
+        const decoration = await Decoration.findById(review.decorationId)
+        if (decoration && decoration.numberOfReviews > 1) {
+            decoration.rating = ((decoration.rating * decoration.numberOfReviews) - oldRating) / (decoration.numberOfReviews - 1)
+            decoration.numberOfReviews -= 1
+            await decoration.save({ session })
+
+            const vendor = await Vendor.findById(decoration.vendorId)
             if (vendor && vendor.numberOfReviews > 1) {
                 vendor.rating = ((vendor.rating * vendor.numberOfReviews) - oldRating) / (vendor.numberOfReviews - 1)
                 vendor.numberOfReviews -= 1
