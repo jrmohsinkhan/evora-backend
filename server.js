@@ -23,9 +23,8 @@ app.use(cookieParser());
 
 // Routes
 app.use('/api/customer/auth', require('./routes/customer/auth'));
-app.use('/api/vendor/auth', require('./routes/vendor/auth'));
-
-
+app.use('/api/vendor', require('./routes/vendor'));
+app.use('/api/reviews', require('./routes/reviews'));
 
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
