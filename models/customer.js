@@ -9,7 +9,12 @@ const userSchema = new mongoose.Schema({
     googleId: { type: String },
     otpExpires: { type: Date }, // OTP expiration time
     resetPasswordToken: String,
-    resetPasswordExpires: Date
+    resetPasswordExpires: Date,
+    profileImage: {
+        type: String,
+        default: 'https://yourdomain.com/default-avatar.png',
+      },
+      
 });
 
 const Customer = mongoose.model('Customer', userSchema);
