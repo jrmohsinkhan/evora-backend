@@ -15,7 +15,15 @@ const vendorSchema = new mongoose.Schema({
   businessName: { type: String },
   phone: { type: String },
   address: { type: String },
-  isActive: { type: Boolean, default: true } // For admin control
+  isActive: { type: Boolean, default: true }, // For admin control
+  rating: {
+    type: Number,
+    default: 0
+  },
+  numberOfReviews: {
+    type: Number,
+    default: 0
+  },
 });
 
 const Vendor = mongoose.model('Vendor', vendorSchema);
