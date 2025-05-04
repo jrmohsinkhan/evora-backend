@@ -258,7 +258,7 @@ router.post('/resend-otp', otpLimiter, async (req, res) => {
  *         description: Server error
  */
 // Login Route
-router.post('/login', otpLimiter, async (req, res) => {
+router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
@@ -342,7 +342,7 @@ router.post('/logout', (req, res) => {
  *         description: Server error
  */
 // Forgot Password Route
-router.post("/forgot-password",otpLimiter, async (req, res) => {
+router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
 
     const customer = await Customer.findOne({ email });
