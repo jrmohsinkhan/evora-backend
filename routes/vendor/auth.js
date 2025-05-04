@@ -148,9 +148,7 @@ router.post('/login', async (req, res) => {
     try {
         const vendor = await Vendor.findOne({ email });
         if (!vendor) return res.status(400).json({ msg: 'Invalid Credentials' });
-
-        // Check if the vendor is verified
-        console.log(!vendor.isVerified);
+        
         if (!vendor.isVerified) {
             return res.status(403).json({ msg: 'Account not verified. Please verify your email.' });
         }
@@ -200,7 +198,7 @@ router.post('/logout', (req, res) => {
 });
 
 // Forgot Password Route
-router.post("/forgot-password",otpLimiter, async (req, res) => {
+router.post("/forgot-password", async (req, res) => {
     const { email } = req.body;
 
     const vendor = await Vendor.findOne({ email });
