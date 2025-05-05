@@ -1,5 +1,5 @@
 const express = require('express');
-const CateringService = require('../models/Catering'); // Ensure path is correct
+const CateringService = require('../../models/Catering'); // Ensure path is correct
 
 const router = express.Router();
 
@@ -52,6 +52,16 @@ router.get('/', async (req, res) => {
         res.status(500).json({ message: e.message });
     }
 });
+
+router.get('/vendor/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params
+        const caterings = await CateringService.find({ vendorId })
+        res.status(200).json(caterings)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
 
 // Get a catering service by ID
 router.get('/:id', async (req, res) => {

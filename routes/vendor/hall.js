@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Hall = require('../models/Hall');
+const Hall = require('../../models/Hall');
 
 // Create a new hall
 router.post('/create', async (req, res) => {
@@ -62,7 +62,17 @@ router.get('/', async (req, res) => {
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
-});
+}); 
+
+router.get('/vendor/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params
+        const halls = await Hall.find({ vendorId })
+        res.status(200).json(halls)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
 
 // Get a specific hall by ID
 router.get('/:id', async (req, res) => {

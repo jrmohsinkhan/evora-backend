@@ -1,19 +1,8 @@
 const express = require('express')
 const router = express.Router()
-const Car = require('../models/Car')
+const Car = require('../../models/Car')
 
-const validateCarInput = (req, res, next) => {
-    const { brand, model, seats, year, pricePerUnit, location } = req.body
-    if (!brand || !model || !seats || !year || !pricePerUnit || !location) {
-        return res.status(400).json({ message: 'Missing required fields' })
-    }
-    if (seats < 1 || pricePerUnit < 0 || year < 1900) {
-        return res.status(400).json({ message: 'Invalid values provided' })
-    }
-    next()
-}
-
-router.post('/create', validateCarInput, async (req, res) => {
+router.post('/create', async (req, res) => {
     try {
         const { seats, year, brand, model, images, pricePerUnit, description, location, vendorId } = req.body
         const car = await Car.create({
@@ -42,6 +31,16 @@ router.get('/', async (req, res) => {
     }
 })
 
+router.get('/vendor/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params
+        const cars = await Car.find({ vendorId })
+        res.status(200).json(cars)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
+
 
 router.get('/:id', async (req, res) => {
     try {
@@ -53,7 +52,7 @@ router.get('/:id', async (req, res) => {
     }
 })
 
-router.put('/:id', validateCarInput, async (req, res) => {
+router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params
         const { seats, year, brand, model, images, pricePerUnit, description, location } = req.body
