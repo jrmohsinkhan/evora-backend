@@ -16,6 +16,10 @@ const vendorSchema = new mongoose.Schema({
   phone: { type: String },
   address: { type: String },
   isActive: { type: Boolean, default: true }, // For admin control
+  profileImage: {
+    type: String,
+    default: 'https://yourdomain.com/default-avatar.png',
+  },
   rating: {
     type: Number,
     default: 0
