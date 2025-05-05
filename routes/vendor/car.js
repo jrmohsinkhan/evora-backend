@@ -2,6 +2,54 @@ const express = require('express')
 const router = express.Router()
 const Car = require('../../models/Car')
 
+/**
+ * @swagger
+ * /vendor/car/create:
+ *   post:
+ *     summary: Create a new car listing
+ *     tags: [Cars]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - seats
+ *               - year
+ *               - brand
+ *               - model
+ *               - pricePerUnit
+ *               - description
+ *               - location
+ *               - vendorId
+ *             properties:
+ *               seats:
+ *                 type: number
+ *               year:
+ *                 type: number
+ *               brand:
+ *                 type: string
+ *               model:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               pricePerUnit:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               location:
+ *                 type: string
+ *               vendorId:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Car created successfully
+ *       500:
+ *         description: Server error
+ */
 router.post('/create', async (req, res) => {
     try {
         const { seats, year, brand, model, images, pricePerUnit, description, location, vendorId } = req.body
@@ -22,6 +70,18 @@ router.post('/create', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /vendor/car:
+ *   get:
+ *     summary: Get all cars
+ *     tags: [Cars]
+ *     responses:
+ *       200:
+ *         description: List of all cars
+ *       500:
+ *         description: Server error
+ */
 router.get('/', async (req, res) => {
     try {
         const cars = await Car.find()
@@ -31,6 +91,25 @@ router.get('/', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /vendor/car/vendor/{vendorId}:
+ *   get:
+ *     summary: Get all cars by vendor ID
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: vendorId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the vendor
+ *     responses:
+ *       200:
+ *         description: List of cars for the vendor
+ *       500:
+ *         description: Server error
+ */
 router.get('/vendor/:vendorId', async (req, res) => {
     try {
         const { vendorId } = req.params
@@ -41,7 +120,25 @@ router.get('/vendor/:vendorId', async (req, res) => {
     }
 })
 
-
+/**
+ * @swagger
+ * /vendor/car/{id}:
+ *   get:
+ *     summary: Get a car by ID
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the car
+ *     responses:
+ *       200:
+ *         description: Car details
+ *       500:
+ *         description: Server error
+ */
 router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -52,6 +149,52 @@ router.get('/:id', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /vendor/car/{id}:
+ *   put:
+ *     summary: Update a car
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the car
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               seats:
+ *                 type: number
+ *               year:
+ *                 type: number
+ *               brand:
+ *                 type: string
+ *               model:
+ *                 type: string
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               pricePerUnit:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               location:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Car updated successfully
+ *       404:
+ *         description: Car not found
+ *       500:
+ *         description: Server error
+ */
 router.put('/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -79,6 +222,25 @@ router.put('/:id', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /vendor/car/{id}:
+ *   delete:
+ *     summary: Delete a car
+ *     tags: [Cars]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the car
+ *     responses:
+ *       200:
+ *         description: Car deleted successfully
+ *       500:
+ *         description: Server error
+ */
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -88,6 +250,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ message: e.message })
     }
 })
-
 
 module.exports = router 
