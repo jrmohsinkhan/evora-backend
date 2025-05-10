@@ -12,8 +12,6 @@ require('dotenv').config();
 
 const router = express.Router();
 
-
-
 // Customer Google OAuth Routes
 router.get('/google/customer',
     passport.authenticate('google-customer', { scope: ['profile', 'email'] })
@@ -453,5 +451,133 @@ router.post("/reset-password/:token", async (req, res) => {
     res.status(200).json({ message: "✅ Password has been reset successfully" });
 });
 
+/**
+ * @swagger
+ * /auth/profile:
+ *   get:
+ *     summary: Get customer profile information
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Customer profile retrieved successfully
+ *       401:
+ *         description: Not authorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/profile', async (req, res) => {
+    try {
+        // Get token from cookie
+        const token = req.cookies.token_customer;
+        if (!token) {
+            return res.status(401).json({ msg: 'No token, authorization denied' });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Get customer data
+        const customer = await Customer.findById(decoded.id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        if (!customer) {
+            return res.status(404).json({ msg: 'Customer not found' });
+        }
+
+        res.json(customer);
+    } catch (err) {
+        console.error(err);
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ msg: 'Token is invalid' });
+        }
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+/**
+ * @swagger
+ * /auth/profile:
+ *   put:
+ *     summary: Update customer profile information
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: object
+ *                 properties:
+ *                   street:
+ *                     type: string
+ *                   city:
+ *                     type: string
+ *                   state:
+ *                     type: string
+ *                   zipCode:
+ *                     type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *       401:
+ *         description: Not authorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/profile', async (req, res) => {
+    try {
+        // Get token from cookie
+        const token = req.cookies.token_customer;
+        if (!token) {
+            return res.status(401).json({ msg: 'No token, authorization denied' });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Get customer
+        let customer = await Customer.findById(decoded.id);
+        if (!customer) {
+            return res.status(404).json({ msg: 'Customer not found' });
+        }
+
+        // Fields that are allowed to be updated
+        const updatableFields = ['name', 'phone', 'address'];
+        
+        // Update only the fields that are provided
+        updatableFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                customer[field] = req.body[field];
+            }
+        });
+
+        // Save the updated customer
+        await customer.save();
+
+        // Return the updated customer without sensitive information
+        const updatedCustomer = await Customer.findById(decoded.id)
+            .select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+
+        res.json({
+            msg: 'Profile updated successfully',
+            customer: updatedCustomer
+        });
+
+    } catch (err) {
+        console.error(err);
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ msg: 'Token is invalid' });
+        }
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
 
 module.exports = router;

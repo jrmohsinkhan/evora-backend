@@ -270,5 +270,74 @@ router.post("/reset-password/:token", async (req, res) => {
     res.status(200).json({ message: "✅ Password has been reset successfully" });
 });
 
+// Get Vendor Profile Route
+router.get('/profile', async (req, res) => {
+    try {
+        // Get token from cookie
+        const token = req.cookies.token_vendor;
+        if (!token) {
+            return res.status(401).json({ msg: 'No token, authorization denied' });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Get vendor profile
+        const vendor = await Vendor.findById(decoded.id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        if (!vendor) {
+            return res.status(404).json({ msg: 'Vendor not found' });
+        }
+
+        res.json(vendor);
+    } catch (err) {
+        console.error(err);
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ msg: 'Invalid token' });
+        }
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// Update Vendor Profile Route
+router.put('/profile', async (req, res) => {
+    try {
+        // Get token from cookie
+        const token = req.cookies.token_vendor;
+        if (!token) {
+            return res.status(401).json({ msg: 'No token, authorization denied' });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Find vendor
+        const vendor = await Vendor.findById(decoded.id);
+        if (!vendor) {
+            return res.status(404).json({ msg: 'Vendor not found' });
+        }
+
+        const { name, businessName, phone, address } = req.body;
+
+        // Update fields
+        if (name) vendor.name = name;
+        if (businessName) vendor.businessName = businessName;
+        if (phone) vendor.phone = phone;
+        if (address) vendor.address = address;
+
+        // Save updated vendor
+        await vendor.save();
+
+        // Return updated vendor (excluding sensitive information)
+        const updatedVendor = await Vendor.findById(decoded.id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        res.json(updatedVendor);
+
+    } catch (err) {
+        console.error(err);
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ msg: 'Invalid token' });
+        }
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
 
 module.exports = router;
