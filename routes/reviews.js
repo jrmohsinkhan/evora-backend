@@ -7,11 +7,48 @@ const Catering = require('../models/Catering')
 const Hall = require('../models/Hall')
 const Decoration = require('../models/Decoration')
 const mongoose = require('mongoose')
-
+const authVendor = require('../middleware/authVendor')
 // Helper function for rating calculation
 function calculateNewRating(currentRating, numberOfReviews, newRating) {
     return ((currentRating * numberOfReviews) + newRating) / (numberOfReviews + 1)
 }
+router.get('/vendor',authVendor, async (req, res) => {
+    try {
+        const vendorId = req.vendor.id
+        const reviews = await Review.aggregate([
+            {
+                $match: { 
+                    vendorId: new mongoose.Types.ObjectId(vendorId) 
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'user'
+                }
+            },
+            {
+                $unwind: '$user'
+            },
+            {
+                $project: {
+                    rating: 1,
+                    comment: 1,
+                    serviceType: 1,
+                    createdAt: 1,
+                    'user.name': 1,
+                    'user.email': 1,
+                    'user.profileImage': 1
+                }
+            }
+        ])
+        res.status(200).json(reviews)
+    } catch (e) {
+        res.status(500).json({ message: e.message })
+    }
+})
 
 router.post('/car/create', async (req, res) => {
     const session = await mongoose.startSession()
@@ -36,7 +73,7 @@ router.post('/car/create', async (req, res) => {
         }], { session })
 
         // Update car rating
-        const newCarRating = calculateNewRating(car.rating, car.numberOfReviews, rating)
+        const newCarRating = calculateNewRating(car.rating || 0, car.numberOfReviews || 0, rating)
         car.rating = newCarRating
         car.numberOfReviews += 1
         await car.save({ session })
@@ -44,7 +81,7 @@ router.post('/car/create', async (req, res) => {
         // Update vendor rating
         const vendor = await Vendor.findById(car.vendorId)
         if (vendor) {
-            vendor.rating = calculateNewRating(vendor.rating, vendor.numberOfReviews, rating)
+            vendor.rating = calculateNewRating(vendor.rating || 0, vendor.numberOfReviews || 0, rating)
             vendor.numberOfReviews += 1
             await vendor.save({ session })
         }
@@ -188,7 +225,7 @@ router.post('/catering/create', async (req, res) => {
         }], { session })
 
         // Update catering rating
-        const newCateringRating = calculateNewRating(catering.rating, catering.numberOfReviews, rating)
+        const newCateringRating = calculateNewRating(catering.rating || 0, catering.numberOfReviews || 0, rating)
         catering.rating = newCateringRating
         catering.numberOfReviews += 1
         await catering.save({ session })
@@ -196,7 +233,7 @@ router.post('/catering/create', async (req, res) => {
         // Update vendor rating
         const vendor = await Vendor.findById(catering.vendorId)
         if (vendor) {
-            vendor.rating = calculateNewRating(vendor.rating, vendor.numberOfReviews, rating)
+            vendor.rating = calculateNewRating(vendor.rating || 0, vendor.numberOfReviews || 0, rating)
             vendor.numberOfReviews += 1
             await vendor.save({ session })
         }
@@ -323,16 +360,17 @@ router.post('/hall/create', async (req, res) => {
     session.startTransaction()
 
     try {
-        const { hallId, userId, rating, comment } = req.body
-
+        const { serviceId, userId, rating, comment } = req.body
+        console.log(serviceId, userId, rating, comment)
         // Validate if hall exists
-        const hall = await Hall.findById(hallId)
+        const hall = await Hall.findById(serviceId)
         if (!hall) {
             throw new Error('Hall not found')
         }
 
         const review = await Review.create([{
-            hallId,
+            serviceId,
+            vendorId: hall.vendorId,
             userId,
             rating,
             comment,
@@ -340,7 +378,7 @@ router.post('/hall/create', async (req, res) => {
         }], { session })
 
         // Update hall rating
-        const newHallRating = calculateNewRating(hall.rating, hall.numberOfReviews, rating)
+        const newHallRating = calculateNewRating(hall.rating || 0, hall.numberOfReviews || 0, rating)
         hall.rating = newHallRating
         hall.numberOfReviews += 1
         await hall.save({ session })
@@ -348,7 +386,7 @@ router.post('/hall/create', async (req, res) => {
         // Update vendor rating
         const vendor = await Vendor.findById(hall.vendorId)
         if (vendor) {
-            vendor.rating = calculateNewRating(vendor.rating, vendor.numberOfReviews, rating)
+            vendor.rating = calculateNewRating(vendor.rating || 0, vendor.numberOfReviews || 0, rating)
             vendor.numberOfReviews += 1
             await vendor.save({ session })
         }
@@ -357,6 +395,7 @@ router.post('/hall/create', async (req, res) => {
         res.status(201).json(review[0])
     } catch (e) {
         await session.abortTransaction()
+        console.log(e)
         res.status(500).json({ 
             message: 'Failed to create review', 
             error: e.message 
@@ -491,7 +530,7 @@ router.post('/decoration/create', async (req, res) => {
         }], { session })
 
         // Update decoration rating
-        const newDecorationRating = calculateNewRating(decoration.rating, decoration.numberOfReviews, rating)
+        const newDecorationRating = calculateNewRating(decoration.rating || 0, decoration.numberOfReviews || 0, rating)
         decoration.rating = newDecorationRating
         decoration.numberOfReviews += 1
         await decoration.save({ session })
@@ -499,7 +538,7 @@ router.post('/decoration/create', async (req, res) => {
         // Update vendor rating
         const vendor = await Vendor.findById(decoration.vendorId)
         if (vendor) {
-            vendor.rating = calculateNewRating(vendor.rating, vendor.numberOfReviews, rating)
+            vendor.rating = calculateNewRating(vendor.rating || 0, vendor.numberOfReviews || 0, rating)
             vendor.numberOfReviews += 1
             await vendor.save({ session })
         }

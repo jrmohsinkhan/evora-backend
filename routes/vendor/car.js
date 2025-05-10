@@ -112,15 +112,30 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor', authVendor, async (req, res) => {
+router.get('/vendor',authVendor, async (req, res) => {
     try {
-        const vendorId = req.vendor.id
-        const cars = await Car.find({ vendorId })
-        res.status(200).json(cars)
+       const vendorId = req.vendor.id
+        const cars = await Car.find({ vendorId });
+        
+        // Transform the data to match ServiceCard format
+        const formattedCars = cars.map(car => ({
+            id: car._id,
+            title: `${car.brand} ${car.model}`,
+            description: car.description,
+            price: car.pricePerUnit,
+            imageUris: car.images,
+            additionalFields: {
+                Location: car.location,
+                Year: car.year,
+                Seats: car.seats
+            }
+        }));
+
+        res.status(200).json(formattedCars);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
 /**
  * @swagger
@@ -141,7 +156,7 @@ router.get('/vendor', authVendor, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:id',authVendor, async (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
         const { id } = req.params
         const car = await Car.findById(id)
