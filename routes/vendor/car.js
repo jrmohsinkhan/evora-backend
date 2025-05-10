@@ -255,7 +255,7 @@ router.put('/:id',authVendor, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id',authVendor,     async (req, res) => {
+router.delete('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params
         const vendorId = req.vendor.id

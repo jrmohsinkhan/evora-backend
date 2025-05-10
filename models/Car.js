@@ -9,6 +9,7 @@ const CarServiceSchema = new mongoose.Schema({
     numberOfReviews: { type: Number, default: 0 },
     images: [{ type: String }],
     brand: { type: String },
+    model: { type: String },
     year: { type: Number },
     seats: { type: Number },
 }, { timestamps: true });
