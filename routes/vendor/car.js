@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const Car = require('../../models/Car')
+const authVendor = require('../../middleware/authVendor')
 
 /**
  * @swagger
@@ -50,9 +51,10 @@ const Car = require('../../models/Car')
  *       500:
  *         description: Server error
  */
-router.post('/create', async (req, res) => {
+router.post('/create',authVendor, async (req, res) => {
     try {
-        const { seats, year, brand, model, images, pricePerUnit, description, location, vendorId } = req.body
+        const { seats, year, brand, model, images, pricePerUnit, description, location } = req.body
+        const vendorId = req.vendor.id
         const car = await Car.create({
             seats,
             year,
@@ -110,9 +112,9 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor/:vendorId', async (req, res) => {
+router.get('/vendor', authVendor, async (req, res) => {
     try {
-        const { vendorId } = req.params
+        const vendorId = req.vendor.id
         const cars = await Car.find({ vendorId })
         res.status(200).json(cars)
     } catch (e) {
@@ -139,7 +141,7 @@ router.get('/vendor/:vendorId', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params
         const car = await Car.findById(id)
@@ -195,10 +197,23 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params
+        const vendorId = req.vendor.id
         const { seats, year, brand, model, images, pricePerUnit, description, location } = req.body
+
+        // First find the car to check vendor ownership
+        const existingCar = await Car.findById(id)
+        if (!existingCar) {
+            return res.status(404).json({ message: 'Car not found' })
+        }
+
+        // Check if the car belongs to the vendor
+        if (existingCar.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to update this car' })
+        }
+
         const car = await Car.findByIdAndUpdate(
             id, 
             { 
@@ -209,13 +224,12 @@ router.put('/:id', async (req, res) => {
                 images: images || [],
                 pricePerUnit,
                 description,
-                location
+                location,
+                vendorId
             }, 
             { new: true }
         )
-        if (!car) {
-            return res.status(404).json({ message: 'Car not found' })
-        }
+        
         res.status(200).json(car)
     } catch (e) {
         res.status(500).json({ message: e.message })
@@ -241,9 +255,21 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id',authVendor,     async (req, res) => {
     try {
         const { id } = req.params
+        const vendorId = req.vendor.id
+
+        // First find the car to check vendor ownership
+        const existingCar = await Car.findById(id)
+        if (!existingCar) {
+            return res.status(404).json({ message: 'Car not found' })
+        }
+
+        // Check if the car belongs to the vendor
+        if (existingCar.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to delete this car' })
+        }
         await Car.findByIdAndDelete(id)
         res.status(200).json({ message: 'Car deleted successfully' })
     } catch (e) {

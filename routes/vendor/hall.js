@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Hall = require('../../models/Hall');
+const authVendor = require('../../middleware/authVendor');
 
 /**
  * @swagger
@@ -62,10 +63,9 @@ const Hall = require('../../models/Hall');
  *       500:
  *         description: Server error
  */
-router.post('/create', async (req, res) => {
+router.post('/create', authVendor, async (req, res) => {
     try {
         const {
-            vendorId,
             name,
             type,
             description,
@@ -82,9 +82,11 @@ router.post('/create', async (req, res) => {
             hasParking,
             indoor,
         } = req.body;
+        
+        const vendorId = req.vendor.id; // Get vendorId from auth token
 
         // Validate required fields
-        if (!vendorId || !name || !type || price === undefined) {
+        if (!name || !type || price === undefined) {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
@@ -153,9 +155,9 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor/:vendorId', async (req, res) => {
+router.get('/vendor', authVendor, async (req, res) => {
     try {
-        const { vendorId } = req.params
+        const vendorId = req.vendor.id
         const halls = await Hall.find({ vendorId })
         res.status(200).json(halls)
     } catch (e) {
@@ -225,15 +227,22 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authVendor, async (req, res) => {
     try {
         const { id } = req.params;
+        const vendorId = req.vendor.id
         const updateData = req.body;
+        const existingHall = await Hall.findById(id)
+        if (!existingHall) {
+            return res.status(404).json({ message: 'Hall not found' })
+        }
+
+        // Check if the car belongs to the vendor
+        if (existingHall.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to update this hall' })
+        }
 
         const hall = await Hall.findByIdAndUpdate(id, updateData, { new: true });
-        if (!hall) {
-            return res.status(404).json({ message: 'Hall not found' });
-        }
 
         res.status(200).json(hall);
     } catch (e) {
@@ -260,9 +269,17 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authVendor, async (req, res) => {
     try {
+        const vendorId = req.vendor.id
         const { id } = req.params;
+        const existingHall = await Hall.findById(id)
+        if (!existingHall) {
+            return res.status(404).json({ message: 'Hall not found' })
+        }
+        if (existingHall.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to delete this hall' })
+        }
         await Hall.findByIdAndDelete(id);
         res.status(200).json({ message: 'Hall deleted successfully' });
     } catch (e) {

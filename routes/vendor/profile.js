@@ -6,6 +6,7 @@ const Vendor = require('../../models/vendor');
 // Get Profile
 router.get('/get', vendorAuth, async (req, res) => {
     try {
+        console.log(req.vendor.id);
         const vendor = await Vendor.findById(req.vendor.id).select('-password -otp -otpExpires -isVerified');
         if (!vendor) return res.status(404).json({ msg: 'Vendor not found' });
         res.json(vendor);
