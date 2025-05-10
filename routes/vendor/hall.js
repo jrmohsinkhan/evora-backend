@@ -63,54 +63,39 @@ const authVendor = require('../../middleware/authVendor');
  *       500:
  *         description: Server error
  */
-router.post('/create', authVendor, async (req, res) => {
+router.post('/create',authVendor, async (req, res) => {
     try {
-        const {
-            name,
-            type,
-            description,
-            location,
-            price,
-            price_per_person,
-            rating,
-            reviews,
-            capacity,
-            timing,
-            image,
-            images,
-            video,
-            hasParking,
-            indoor,
-        } = req.body;
-        
-        const vendorId = req.vendor.id; // Get vendorId from auth token
+        const {title,description,location,price,capacity,images} = req.body;        
+        const vendorId = req.vendor.id // Get vendorId from auth token
 
         // Validate required fields
-        if (!name || !type || price === undefined) {
+        if (!title || !description || !location || !price || !capacity || !images) {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
         const hall = await Hall.create({
-            vendorId,
-            name,
-            type,
-            description,
-            location,
-            price,
-            price_per_person,
-            rating,
-            reviews,
-            capacity,
-            timing,
-            image,
-            images: images || [],
-            video,
-            hasParking,
-            indoor,
+           title,
+           description,
+           location,
+           price,
+           capacity,
+           images,
+           vendorId
         });
 
-        res.status(201).json(hall);
+        res.status(201).json({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        });
     } catch (e) {
+        console.log(e);
         res.status(500).json({ message: e.message });
     }
 });
@@ -155,15 +140,29 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor', authVendor, async (req, res) => {
+router.get('/vendor',authVendor, async (req, res) => {
     try {
-        const vendorId = req.vendor.id
-        const halls = await Hall.find({ vendorId })
-        res.status(200).json(halls)
+      const vendorId = req.vendor.id
+        const halls = await Hall.find({ vendorId });
+        
+        // Transform the data to match ServiceCard format
+        const formattedHalls = halls.map(hall => ({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        }));
+
+        res.status(200).json(formattedHalls);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
 /**
  * @swagger
@@ -227,11 +226,12 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', authVendor, async (req, res) => {
+router.put('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params;
-        const vendorId = req.vendor.id
+       const vendorId = req.vendor.id
         const updateData = req.body;
+        console.log("UPDATE DATA", updateData);
         const existingHall = await Hall.findById(id)
         if (!existingHall) {
             return res.status(404).json({ message: 'Hall not found' })
@@ -244,7 +244,17 @@ router.put('/:id', authVendor, async (req, res) => {
 
         const hall = await Hall.findByIdAndUpdate(id, updateData, { new: true });
 
-        res.status(200).json(hall);
+        res.status(200).json({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        });
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
@@ -269,7 +279,7 @@ router.put('/:id', authVendor, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', authVendor, async (req, res) => {
+router.delete('/:id',authVendor, async (req, res) => {
     try {
         const vendorId = req.vendor.id
         const { id } = req.params;

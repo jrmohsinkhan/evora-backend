@@ -2,19 +2,15 @@ const mongoose = require('mongoose');
 
 const HallServiceSchema = new mongoose.Schema({
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor', required: true },
-    name: { type: String, required: true },
-    type: { type: String, enum: ['Banquet', 'Marquee', 'Outdoor'], required: true },
+    title: { type: String, required: true },
     description: { type: String },
     location: { type: String },
     price: { type: Number },
-    price_per_person: { type: Number },
     rating: { type: Number, default: 0 },
     reviews: { type: Number, default: 0 },
     capacity: { type: Number },
-    timing: { type: String },
-    image: { type: String },
+    // timing: { type: String },
     images: [{ type: String }],
-    video: { type: String },
     hasParking: { type: Boolean, default: false },
     indoor: { type: Boolean, default: true },
 }, { timestamps: true });

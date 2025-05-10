@@ -1,18 +1,6 @@
 const express = require('express')
 const router = express.Router()
 const Notification = require('../models/Notification')
-const mongoose = require('mongoose')
-
-router.post('/create', async (req, res) => {
-    try{
-    const { recipient, title, message } = req.body
-    const notification = new Notification({ recipient, title, message })
-    await notification.save()
-    res.status(201).json(notification)
-    } catch (e) {
-        res.status(500).json({ message: e.message })
-    }
-})
 
 router.get('/', async (req, res) => {
     try{

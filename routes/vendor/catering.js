@@ -54,42 +54,44 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post("/create", authVendor, async (req, res) => {
+router.post("/create", authVendor,async (req, res) => {
   try {
-    const {
-      name,
-      area,
-      timing,
-      price,
-      cuisine,
-      image,
-      images,
-      rating,
-      reviews,
-    } = req.body;
-    
-    const vendorId = req.vendor.id; // Get vendorId from auth token
+    const { title, description, area, timing, price, dishes, image, images } =
+      req.body;
+
+    const vendorId = req.vendor.id
 
     // Validate required fields
-    if (!name || !area || !timing || !price || !cuisine) {
+    if (!title || !description || !area || !timing || !price) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     const catering = await CateringService.create({
       vendorId,
-      name,
+      title,
+      description,
       area,
       timing,
       price,
-      cuisine,
+      dishes,
       image,
       images: images || [],
-      rating: rating || 0,
-      reviews: reviews || 0,
     });
 
-    res.status(201).json(catering);
+    res.status(201).json({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    });
   } catch (e) {
+    console.log("ERROR", e);
     res.status(500).json({ message: e.message });
   }
 });
@@ -134,11 +136,26 @@ router.get("/", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get("/vendor", authVendor, async (req, res) => {
+router.get("/vendor",authVendor, async (req, res) => {
   try {
-    const vendorId = req.vendor.id; // Fix: Remove destructuring
+    const vendorId = req.vendor.id
     const caterings = await CateringService.find({ vendorId });
-    res.status(200).json(caterings);
+
+    // Transform the data to match ServiceCard format
+    const formattedCaterings = caterings.map((catering) => ({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    }));
+
+    res.status(200).json(formattedCaterings);
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -208,48 +225,42 @@ router.get("/:id", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put("/:id", authVendor, async (req, res) => {
+router.put("/:id",authVendor, async (req, res) => {
   try {
     const { id } = req.params;
-    const vendorId = req.vendor.id;
-    const {
-      name,
-      area,
-      timing,
-      price,
-      cuisine,
-      image,
-      images,
-      rating,
-      reviews,
-    } = req.body;
-
+    const vendorId = req.vendor.id
+    const updatedData = req.body;
     // Check ownership
     const existingCatering = await CateringService.findById(id);
     if (!existingCatering) {
       return res.status(404).json({ message: "Catering service not found" });
     }
     if (existingCatering.vendorId.toString() !== vendorId) {
-      return res.status(403).json({ message: "Not authorized to update this catering service" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this catering service" });
     }
 
     const catering = await CateringService.findByIdAndUpdate(
       id,
       {
-        name,
-        area,
-        timing,
-        price,
-        cuisine,
-        image,
-        images: images || [],
-        rating,
-        reviews,
+        ...updatedData,
       },
       { new: true }
     );
 
-    res.status(200).json(catering);
+    res.status(200).json({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    });
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
@@ -276,10 +287,10 @@ router.put("/:id", authVendor, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete("/:id", authVendor, async (req, res) => {
+router.delete("/:id",authVendor, async (req, res) => {
   try {
     const { id } = req.params;
-    const vendorId = req.vendor.id;
+    const vendorId = req.vendor.id
 
     // Check ownership
     const existingCatering = await CateringService.findById(id);
@@ -287,7 +298,9 @@ router.delete("/:id", authVendor, async (req, res) => {
       return res.status(404).json({ message: "Catering service not found" });
     }
     if (existingCatering.vendorId.toString() !== vendorId) {
-      return res.status(403).json({ message: "Not authorized to delete this catering service" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this catering service" });
     }
 
     await CateringService.findByIdAndDelete(id);
