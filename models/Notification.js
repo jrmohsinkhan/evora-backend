@@ -28,7 +28,7 @@ const notificationSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['booking', 'review', 'system', 'custom'], // Customize types
+    enum: ['booking_added', 'service_added', 'review_received', 'payment_received'], // Customize types
     default: 'custom',
   },
   metadata: {
