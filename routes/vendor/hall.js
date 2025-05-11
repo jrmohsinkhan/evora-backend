@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Hall = require('../../models/Hall');
+const authVendor = require('../../middleware/authVendor');
+const { sendNotification } = require('../../utils/notification');
 
 /**
  * @swagger
@@ -62,53 +64,41 @@ const Hall = require('../../models/Hall');
  *       500:
  *         description: Server error
  */
-router.post('/create', async (req, res) => {
+router.post('/create',authVendor, async (req, res) => {
     try {
-        const {
-            vendorId,
-            name,
-            type,
-            description,
-            location,
-            price,
-            price_per_person,
-            rating,
-            reviews,
-            capacity,
-            timing,
-            image,
-            images,
-            video,
-            hasParking,
-            indoor,
-        } = req.body;
+        const {title,description,location,price,capacity,images,menus} = req.body;        
+        const vendorId = req.vendor.id // Get vendorId from auth token
 
         // Validate required fields
-        if (!vendorId || !name || !type || price === undefined) {
+        if (!title || !description || !location || !price || !capacity || !images) {
             return res.status(400).json({ message: 'Missing required fields' });
         }
 
         const hall = await Hall.create({
-            vendorId,
-            name,
-            type,
-            description,
-            location,
-            price,
-            price_per_person,
-            rating,
-            reviews,
-            capacity,
-            timing,
-            image,
-            images: images || [],
-            video,
-            hasParking,
-            indoor,
+           title,
+           description,
+           location,
+           price,
+           capacity,
+           images,
+           vendorId,
+           menus
         });
+        await sendNotification(vendorId, "Vendor", "New Hall Added", "A new hall has been added to your account", "service_added");
 
-        res.status(201).json(hall);
+        res.status(201).json({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        });
     } catch (e) {
+        console.log(e);
         res.status(500).json({ message: e.message });
     }
 });
@@ -153,15 +143,30 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor/:vendorId', async (req, res) => {
+router.get('/vendor',authVendor, async (req, res) => {
     try {
-        const { vendorId } = req.params
-        const halls = await Hall.find({ vendorId })
-        res.status(200).json(halls)
+      const vendorId = req.vendor.id
+        const halls = await Hall.find({ vendorId });
+        
+        // Transform the data to match ServiceCard format
+        const formattedHalls = halls.map(hall => ({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            menus: hall.menus,
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        }));
+
+        res.status(200).json(formattedHalls);
     } catch (e) {
-        res.status(500).json({ message: e.message })
+        res.status(500).json({ message: e.message });
     }
-})
+});
 
 /**
  * @swagger
@@ -225,17 +230,36 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params;
-        const updateData = req.body;
-
-        const hall = await Hall.findByIdAndUpdate(id, updateData, { new: true });
-        if (!hall) {
-            return res.status(404).json({ message: 'Hall not found' });
+        console.log(req.body)
+       const vendorId = req.vendor.id
+        const {title,description,location,price,capacity,images,menus} = req.body;
+        const existingHall = await Hall.findById(id)
+        if (!existingHall) {
+            return res.status(404).json({ message: 'Hall not found' })
         }
 
-        res.status(200).json(hall);
+        // Check if the car belongs to the vendor
+        if (existingHall.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to update this hall' })
+        }
+
+        const hall = await Hall.findByIdAndUpdate(id, {title,description,location,price,capacity,images,menus}, { new: true });
+
+        res.status(200).json({
+            id: hall._id,
+            title: hall.title,
+            description: hall.description,
+            price: hall.price,
+            imageUris: hall.images || [hall.image],
+            menus: hall.menus,
+            additionalFields: {
+                Location: hall.location,
+                Capacity: hall.capacity,
+            }
+        });
     } catch (e) {
         res.status(500).json({ message: e.message });
     }
@@ -260,9 +284,17 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id',authVendor, async (req, res) => {
     try {
+        const vendorId = req.vendor.id
         const { id } = req.params;
+        const existingHall = await Hall.findById(id)
+        if (!existingHall) {
+            return res.status(404).json({ message: 'Hall not found' })
+        }
+        if (existingHall.vendorId.toString() !== vendorId) {
+            return res.status(403).json({ message: 'Not authorized to delete this hall' })
+        }
         await Hall.findByIdAndDelete(id);
         res.status(200).json({ message: 'Hall deleted successfully' });
     } catch (e) {
