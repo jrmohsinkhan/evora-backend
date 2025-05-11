@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const Car = require('../../models/Car')
 const authVendor = require('../../middleware/authVendor')
+const { sendNotification } = require('../../utils/notification')
 
 /**
  * @swagger
@@ -66,6 +67,7 @@ router.post('/create',authVendor, async (req, res) => {
             location,
             vendorId
         })
+        await sendNotification(vendorId, "Vendor", "New Car Added", "A new car has been added to your account", "service_added");
         res.status(201).json(car)
     } catch (e) {
         res.status(500).json({ message: 'Failed to create car', error: e.message })

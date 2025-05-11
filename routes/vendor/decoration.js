@@ -4,6 +4,7 @@ const DecorationService = require("../../models/Decoration");
 const authVendor = require("../../middleware/authVendor");
 const Car = require("../../models/Car");
 const CateringService = require("../../models/Catering");
+const { sendNotification } = require("../../utils/notification");
 
 /**
  * @swagger
@@ -65,6 +66,7 @@ router.post("/create",authVendor, async (req, res) => {
       images,
       theme,
     });
+    await sendNotification(vendorId, "Vendor", "New Decoration Service Added", "A new decoration service has been added to your account", "service_added");
     res.status(201).json({
         id: decoration._id,
         title: decoration.title,

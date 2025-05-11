@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Hall = require('../../models/Hall');
 const authVendor = require('../../middleware/authVendor');
+const { sendNotification } = require('../../utils/notification');
 
 /**
  * @swagger
@@ -65,7 +66,7 @@ const authVendor = require('../../middleware/authVendor');
  */
 router.post('/create',authVendor, async (req, res) => {
     try {
-        const {title,description,location,price,capacity,images} = req.body;        
+        const {title,description,location,price,capacity,images,menus} = req.body;        
         const vendorId = req.vendor.id // Get vendorId from auth token
 
         // Validate required fields
@@ -80,8 +81,10 @@ router.post('/create',authVendor, async (req, res) => {
            price,
            capacity,
            images,
-           vendorId
+           vendorId,
+           menus
         });
+        await sendNotification(vendorId, "Vendor", "New Hall Added", "A new hall has been added to your account", "service_added");
 
         res.status(201).json({
             id: hall._id,
@@ -152,6 +155,7 @@ router.get('/vendor',authVendor, async (req, res) => {
             description: hall.description,
             price: hall.price,
             imageUris: hall.images || [hall.image],
+            menus: hall.menus,
             additionalFields: {
                 Location: hall.location,
                 Capacity: hall.capacity,
@@ -229,9 +233,9 @@ router.get('/:id', async (req, res) => {
 router.put('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(req.body)
        const vendorId = req.vendor.id
-        const updateData = req.body;
-        console.log("UPDATE DATA", updateData);
+        const {title,description,location,price,capacity,images,menus} = req.body;
         const existingHall = await Hall.findById(id)
         if (!existingHall) {
             return res.status(404).json({ message: 'Hall not found' })
@@ -242,7 +246,7 @@ router.put('/:id',authVendor, async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this hall' })
         }
 
-        const hall = await Hall.findByIdAndUpdate(id, updateData, { new: true });
+        const hall = await Hall.findByIdAndUpdate(id, {title,description,location,price,capacity,images,menus}, { new: true });
 
         res.status(200).json({
             id: hall._id,
@@ -250,6 +254,7 @@ router.put('/:id',authVendor, async (req, res) => {
             description: hall.description,
             price: hall.price,
             imageUris: hall.images || [hall.image],
+            menus: hall.menus,
             additionalFields: {
                 Location: hall.location,
                 Capacity: hall.capacity,
