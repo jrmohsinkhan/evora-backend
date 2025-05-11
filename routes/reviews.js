@@ -8,7 +8,7 @@ const Hall = require('../models/Hall')
 const Decoration = require('../models/Decoration')
 const mongoose = require('mongoose')
 const authVendor = require('../middleware/authVendor')
-// Helper function for rating calculation
+
 function calculateNewRating(currentRating, numberOfReviews, newRating) {
     return ((currentRating * numberOfReviews) + newRating) / (numberOfReviews + 1)
 }
@@ -208,16 +208,17 @@ router.post('/catering/create', async (req, res) => {
     session.startTransaction()
 
     try {
-        const { cateringId, userId, rating, comment } = req.body
+        const { serviceId, userId, rating, comment } = req.body
 
         // Validate if catering exists
-        const catering = await Catering.findById(cateringId)
+        const catering = await Catering.findById(serviceId)
         if (!catering) {
             throw new Error('Catering not found')
         }
 
         const review = await Review.create([{
-            cateringId,
+            serviceId,
+            vendorId: catering.vendorId,
             userId,
             rating,
             comment,
@@ -513,16 +514,16 @@ router.post('/decoration/create', async (req, res) => {
     session.startTransaction()
 
     try {
-        const { decorationId, userId, rating, comment } = req.body
+        const { serviceId, userId, rating, comment } = req.body
 
         // Validate if decoration exists
-        const decoration = await Decoration.findById(decorationId)
+        const decoration = await Decoration.findById(serviceId)
         if (!decoration) {
             throw new Error('Decoration not found')
         }
 
         const review = await Review.create([{
-            decorationId,
+            serviceId,
             userId,
             rating,
             comment,
