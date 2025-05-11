@@ -1,6 +1,7 @@
 const express = require("express");
 const CateringService = require("../../models/Catering"); // Ensure path is correct
 const authVendor = require("../../middleware/authVendor");
+const { sendNotification } = require("../../utils/notification");
 
 const router = express.Router();
 
@@ -78,6 +79,8 @@ router.post("/create", authVendor,async (req, res) => {
       images: images || [],
     });
 
+    await sendNotification(vendorId, "Vendor", "New Catering Service Added", "A new catering service has been added to your account", "service_added");
+
     res.status(201).json({
       id: catering._id,
       title: catering.title,
@@ -111,6 +114,7 @@ router.post("/create", authVendor,async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const caterings = await CateringService.find();
+    console.log(caterings)
     res.status(200).json(caterings);
   } catch (e) {
     res.status(500).json({ message: e.message });

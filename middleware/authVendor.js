@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 const Vendor = require('../models/vendor');
 
 const authVendor = async (req, res, next) => {
-    console.log("authVendor middleware");
     const token = req.cookies.token_vendor;
     if (!token) {
         console.log("No token, authorization denied");

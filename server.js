@@ -4,12 +4,16 @@ const passport = require('passport');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./utils/swagger');
 require('dotenv').config();
+const cors = require('cors');
 
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(require('cors')());
+app.use(cors({
+  origin: 'http://localhost:8081', // Replace with your frontend URL
+  credentials: true
+}));
 
 // Connect Database
 connectDB();

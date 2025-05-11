@@ -5,9 +5,8 @@ const Schema = mongoose.Schema;
 
 const notificationSchema = new Schema({
   recipient: {
-    type: Schema.Types.ObjectId,
+    type: String,
     required: true,
-    refPath: 'recipientType', // Dynamic reference
   },
   recipientType: {
     type: String,
@@ -28,7 +27,7 @@ const notificationSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['booking_added', 'service_added', 'review_received', 'payment_received'], // Customize types
+    enum: ['booking_added', 'service_added', 'review_received', 'payment_received'], 
     default: 'custom',
   },
   metadata: {
