@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const passport = require('passport');
 const crypto = require("crypto");
 const otpLimiter = require('../../utils/rateLimiter');
+const authCustomer = require('../../middleware/authCustomer');
 require('dotenv').config();
 
 const router = express.Router();
@@ -467,22 +468,17 @@ router.post("/reset-password/:token", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/profile', async (req, res) => {
+router.get('/profile',authCustomer, async (req, res) => {
     try {
-        // Get token from cookie
-        const token = req.cookies.token_customer;
-        if (!token) {
-            return res.status(401).json({ msg: 'No token, authorization denied' });
-        }
-
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+     console.log(req.customer)
+        const customerId = req.customer.id;
 
         // Get customer data
-        const customer = await Customer.findById(decoded.id).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
+        const customer = await Customer.findById(customerId).select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
         if (!customer) {
             return res.status(404).json({ msg: 'Customer not found' });
         }
+        console.log(customer)
 
         res.json(customer);
     } catch (err) {
@@ -532,19 +528,13 @@ router.get('/profile', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/profile', async (req, res) => {
+router.put('/profile',authCustomer, async (req, res) => {
     try {
         // Get token from cookie
-        const token = req.cookies.token_customer;
-        if (!token) {
-            return res.status(401).json({ msg: 'No token, authorization denied' });
-        }
-
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const customerId = req.customer.id;
 
         // Get customer
-        let customer = await Customer.findById(decoded.id);
+        let customer = await Customer.findById(customerId);
         if (!customer) {
             return res.status(404).json({ msg: 'Customer not found' });
         }
@@ -563,7 +553,7 @@ router.put('/profile', async (req, res) => {
         await customer.save();
 
         // Return the updated customer without sensitive information
-        const updatedCustomer = await Customer.findById(decoded.id)
+        const updatedCustomer = await Customer.findById(customerId)
             .select('-password -otp -otpExpires -resetPasswordToken -resetPasswordExpires');
 
         res.json({

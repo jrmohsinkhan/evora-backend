@@ -1,5 +1,7 @@
-const express = require('express');
-const CateringService = require('../../models/Catering'); // Ensure path is correct
+const express = require("express");
+const CateringService = require("../../models/Catering"); // Ensure path is correct
+const authVendor = require("../../middleware/authVendor");
+const { sendNotification } = require("../../utils/notification");
 
 const router = express.Router();
 
@@ -53,43 +55,48 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/create', async (req, res) => {
-    try {
-        const {
-            vendorId,
-            name,
-            area,
-            timing,
-            price,
-            cuisine,
-            image,
-            images,
-            rating,
-            reviews,
-        } = req.body;
+router.post("/create", authVendor,async (req, res) => {
+  try {
+    const { title, description, area, timing, price, dishes, image, images } =
+      req.body;
 
-        // Validate required fields
-        if (!vendorId || !name || !area || !timing || !price || !cuisine) {
-            return res.status(400).json({ message: 'Missing required fields' });
-        }
+    const vendorId = req.vendor.id
 
-        const catering = await CateringService.create({
-            vendorId,
-            name,
-            area,
-            timing,
-            price,
-            cuisine,
-            image,
-            images: images || [],
-            rating: rating || 0,
-            reviews: reviews || 0,
-        });
-
-        res.status(201).json(catering);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+    // Validate required fields
+    if (!title || !description || !area || !timing || !price) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
+
+    const catering = await CateringService.create({
+      vendorId,
+      title,
+      description,
+      area,
+      timing,
+      price,
+      dishes,
+      image,
+      images: images || [],
+    });
+
+    await sendNotification(vendorId, "Vendor", "New Catering Service Added", "A new catering service has been added to your account", "service_added");
+
+    res.status(201).json({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    });
+  } catch (e) {
+    console.log("ERROR", e);
+    res.status(500).json({ message: e.message });
+  }
 });
 
 /**
@@ -104,13 +111,14 @@ router.post('/create', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/', async (req, res) => {
-    try {
-        const caterings = await CateringService.find();
-        res.status(200).json(caterings);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
-    }
+router.get("/", async (req, res) => {
+  try {
+    const caterings = await CateringService.find();
+    console.log(caterings)
+    res.status(200).json(caterings);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
 
 /**
@@ -132,15 +140,30 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor/:vendorId', async (req, res) => {
-    try {
-        const { vendorId } = req.params
-        const caterings = await CateringService.find({ vendorId })
-        res.status(200).json(caterings)
-    } catch (e) {
-        res.status(500).json({ message: e.message })
-    }
-})
+router.get("/vendor",authVendor, async (req, res) => {
+  try {
+    const vendorId = req.vendor.id
+    const caterings = await CateringService.find({ vendorId });
+
+    // Transform the data to match ServiceCard format
+    const formattedCaterings = caterings.map((catering) => ({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    }));
+
+    res.status(200).json(formattedCaterings);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
 
 /**
  * @swagger
@@ -163,19 +186,19 @@ router.get('/vendor/:vendorId', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const catering = await CateringService.findById(id);
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const catering = await CateringService.findById(id);
 
-        if (!catering) {
-            return res.status(404).json({ message: 'Catering service not found' });
-        }
-
-        res.status(200).json(catering);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+    if (!catering) {
+      return res.status(404).json({ message: "Catering service not found" });
     }
+
+    res.status(200).json(catering);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
 
 /**
@@ -206,45 +229,45 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const {
-            name,
-            area,
-            timing,
-            price,
-            cuisine,
-            image,
-            images,
-            rating,
-            reviews,
-        } = req.body;
-
-        const catering = await CateringService.findByIdAndUpdate(
-            id,
-            {
-                name,
-                area,
-                timing,
-                price,
-                cuisine,
-                image,
-                images: images || [],
-                rating,
-                reviews,
-            },
-            { new: true }
-        );
-
-        if (!catering) {
-            return res.status(404).json({ message: 'Catering service not found' });
-        }
-
-        res.status(200).json(catering);
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+router.put("/:id",authVendor, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendorId = req.vendor.id
+    const updatedData = req.body;
+    // Check ownership
+    const existingCatering = await CateringService.findById(id);
+    if (!existingCatering) {
+      return res.status(404).json({ message: "Catering service not found" });
     }
+    if (existingCatering.vendorId.toString() !== vendorId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this catering service" });
+    }
+
+    const catering = await CateringService.findByIdAndUpdate(
+      id,
+      {
+        ...updatedData,
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      id: catering._id,
+      title: catering.title,
+      description: catering.description,
+      price: catering.price,
+      imageUris: catering.images || [catering.image],
+      dishes: catering.dishes,
+      additionalFields: {
+        Area: catering.area,
+        Timing: catering.timing,
+      },
+    });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
 
 /**
@@ -268,19 +291,27 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const deleted = await CateringService.findByIdAndDelete(id);
+router.delete("/:id",authVendor, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const vendorId = req.vendor.id
 
-        if (!deleted) {
-            return res.status(404).json({ message: 'Catering service not found' });
-        }
-
-        res.status(200).json({ message: 'Catering service deleted successfully' });
-    } catch (e) {
-        res.status(500).json({ message: e.message });
+    // Check ownership
+    const existingCatering = await CateringService.findById(id);
+    if (!existingCatering) {
+      return res.status(404).json({ message: "Catering service not found" });
     }
+    if (existingCatering.vendorId.toString() !== vendorId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this catering service" });
+    }
+
+    await CateringService.findByIdAndDelete(id);
+    res.status(200).json({ message: "Catering service deleted successfully" });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 });
 
 module.exports = router;
