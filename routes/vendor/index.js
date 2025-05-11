@@ -8,5 +8,6 @@ router.use("/catering", require("./catering"));
 router.use("/auth",require("./auth"));
 router.use("/profile", require("./profile"));
 router.use("/decoration", require("./decoration"));
+router.use("/booking", require("./booking"));
 
 module.exports = router;
