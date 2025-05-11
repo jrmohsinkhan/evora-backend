@@ -20,9 +20,16 @@ connectDB();
 
 // Passport Middleware
 app.use(passport.initialize());
-require('./config/passport')(passport);
+require("./config/passport")(passport);
 
-const cookieParser = require('cookie-parser');
+app.use(
+  cors({
+    origin: "http://localhost:8081",
+    credentials: true,
+  })
+);
+
+const cookieParser = require("cookie-parser");
 app.use(cookieParser());
 
 // Routes
@@ -31,9 +38,11 @@ app.use('/api/vendor', require('./routes/vendor'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/notification', require('./routes/notification'));
 // Swagger Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
-
-
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, { explorer: true })
+);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
