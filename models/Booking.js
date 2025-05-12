@@ -55,6 +55,9 @@ const bookingSchema = new mongoose.Schema({
   notes: {
     type: String,
   },
+  otherDetails: {
+    type: Object,
+  },
 }, {
   timestamps: true,
 });

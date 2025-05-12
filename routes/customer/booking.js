@@ -51,8 +51,9 @@ router.get('/availability', customerAuth, async (req, res) => {
 // Create a new booking
 router.post('/', customerAuth, async (req, res) => {
     try {
-        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount } = req.body;
+        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount,otherDetails } = req.body;
         const customerId = req.customer.id;
+        console.log("req.body", req.body);
         // Validate required fields
         if (!serviceType || !serviceId || !bookingDate || !eventStart || !eventEnd || !location || !totalAmount) {
             return res.status(400).json({ msg: 'All fields are required' });
@@ -122,7 +123,8 @@ router.post('/', customerAuth, async (req, res) => {
             eventStart,
             eventEnd,
             location,
-            totalAmount
+            totalAmount,
+            otherDetails
         });
 
         // Save the booking
