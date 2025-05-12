@@ -15,7 +15,10 @@ const router = express.Router();
 // Vendor Google OAuth Routes
 router.get(
   "/google/vendor",
-  passport.authenticate("google-vendor", { scope: ["profile", "email"] })
+  passport.authenticate("google-vendor", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })
 );
 
 router.get(
@@ -35,7 +38,7 @@ router.get(
       sameSite: "Lax", // Or 'Lax' if your frontend/backend are on different subdomains
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     });
-    res.redirect(`http://localhost:8081/auth/oauth-success`);
+    res.redirect(`http://localhost:8081/vendor/Screens/DashboardScreen`);
   }
 );
 
@@ -249,7 +252,7 @@ router.post("/forgot-password", async (req, res) => {
   await vendor.save();
 
   // Email content
-  const resetURL = `http://localhost:8081/auth/reset-password/${resetToken}`;
+  const resetURL = `http://localhost:8081/auth/vendor/reset-password/${resetToken}`;
   const message = `
         You requested a password reset for your Evora account.\n
         Click the link below to reset your password:\n

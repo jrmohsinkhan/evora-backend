@@ -31,7 +31,6 @@ function calculateRemovedRating(totalRating, numberOfReviews, oldRating) {
 router.get("/vendor", authVendor, async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    console.log(vendorId);
     const reviews = await Review.aggregate([
       { $match: { vendorId: new mongoose.Types.ObjectId(vendorId) } },
       {
