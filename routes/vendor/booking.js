@@ -1,61 +1,38 @@
 const express = require('express');
 const router = express.Router();
-const customerAuth = require('../../middleware/authCustomer');
 const Hall = require('../../models/Hall');
 const Catering = require('../../models/Catering');
 const Car = require('../../models/Car');
+const Decoration = require('../../models/Decoration');
 const Booking = require('../../models/Booking');
+const Customer = require('../../models/customer');
+const authVendor = require('../../middleware/authVendor');
 
-router.get('/availability', customerAuth, async (req, res) => {
-    try {
-        const { serviceType, serviceId, eventStart, eventEnd } = req.query;
-        const existingBookings = await Booking.find({
-            service: serviceId,
-            serviceType: serviceType,
-            status: { $ne: 'cancelled' },
-            $or: [
-                // Check if new booking starts during an existing booking
-                {
-                    eventStart: { $lte: eventStart },
-                    eventEnd: { $gt: eventStart }
-                },
-                // Check if new booking ends during an existing booking
-                {
-                    eventStart: { $lt: eventEnd },
-                    eventEnd: { $gte: eventEnd }
-                },
-                // Check if new booking completely contains an existing booking
-                {
-                    eventStart: { $gte: eventStart },
-                    eventEnd: { $lte: eventEnd }
-                }
-            ]
-        });
-
-        if (existingBookings.length > 0) {
-            return res.status(400).json({ 
-                msg: 'This time slot is already booked. Please choose a different time.',
-                existingBookings: existingBookings.map(booking => ({
-                    start: booking.eventStart,
-                    end: booking.eventEnd
-                }))
-            });
-        }
-        res.json({ msg: 'This time slot is available' });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: 'Server error' });
-    }
-});
 // Create a new booking
-router.post('/', customerAuth, async (req, res) => {
+router.post('/',authVendor, async (req, res) => {
     try {
-        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount } = req.body;
-        const customerId = req.customer.id;
+        const { 
+            serviceType, 
+            serviceId, 
+            bookingDate, 
+            eventStart, 
+            eventEnd, 
+            location, 
+            totalAmount,
+            customerName,
+            customerEmail,
+            customerPhone
+        } = req.body;
+        const vendorId = req.vendor._id;
+
         // Validate required fields
         if (!serviceType || !serviceId || !bookingDate || !eventStart || !eventEnd || !location || !totalAmount) {
-            return res.status(400).json({ msg: 'All fields are required' });
+            return res.status(400).json({ msg: 'All service fields are required' });
+        }
+
+        // Validate customer data
+        if (!customerName || !customerEmail || !customerPhone) {
+            return res.status(400).json({ msg: 'Customer information is required' });
         }
 
         // Check if the service exists
@@ -70,12 +47,18 @@ router.post('/', customerAuth, async (req, res) => {
             case 'car':
                 service = await Car.findById(serviceId);
                 break;
+            case 'decoration':
+                service = await Decoration.findById(serviceId);
+                break;
             default:
                 return res.status(400).json({ msg: 'Invalid service type' });
         }
 
         if (!service) {
             return res.status(404).json({ msg: 'Service not found' });
+        }
+        if(service.vendorId!==vendorId){
+            return res.status(403).json({ msg: 'You are not authorized to book this service' });
         }
 
         // Check for booking clashes
@@ -112,9 +95,23 @@ router.post('/', customerAuth, async (req, res) => {
             });
         }
 
+        // Create or find customer
+        let customer = await Customer.findOne({ email: customerEmail });
+        
+        if (!customer) {
+            // Create new customer for offline booking
+            customer = new Customer({
+                name: customerName,
+                email: customerEmail,
+                phone: customerPhone,
+                isVerified: true // Since this is an offline booking
+            });
+            await customer.save();
+        }
+
         // Create the booking
         const booking = new Booking({
-            customer: customerId,
+            customer: customer._id,
             serviceType,
             service: serviceId,
             vendor: service.vendorId,
@@ -122,34 +119,42 @@ router.post('/', customerAuth, async (req, res) => {
             eventStart,
             eventEnd,
             location,
-            totalAmount
+            totalAmount,
+            status: 'confirmed', // Since this is an offline booking
+            paymentStatus: 'paid' // Assuming offline payment is already made
         });
 
         // Save the booking
         await booking.save();
 
-        res.status(201).json(booking);
+        res.status(201).json({
+            booking,
+            customer: {
+                name: customer.name,
+                email: customer.email,
+                phone: customer.phone
+            }
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
     }
 });
 
-// Get all bookings for a customer
-router.get('/', customerAuth, async (req, res) => {
-    try {
-        const bookings = await Booking.find({ customer: req.customer.id });
-        res.json(bookings);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ msg: 'Server error' });
-    }
-});
 
-// Get a single booking by ID
-router.get('/:id', customerAuth, async (req, res) => {
+// Update a booking
+router.put('/:id', async (req, res) => {
     try {
-        const booking = await Booking.findById(req.params.id);
+        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount } = req.body;
+        const booking = await Booking.findByIdAndUpdate(req.params.id, {
+            serviceType,
+            service: serviceId,
+            bookingDate,
+            eventStart,
+            eventEnd,
+            location,
+            totalAmount
+        }, { new: true });
         res.json(booking);
     } catch (err) {
         console.error(err);
@@ -157,15 +162,16 @@ router.get('/:id', customerAuth, async (req, res) => {
     }
 });
 
-router.put('/:id', customerAuth, async (req, res) => {
+// Delete a booking
+router.delete('/:id', async (req, res) => {
     try {
-        const { status } = req.body;
-        const booking = await Booking.findOneAndUpdate({_id:req.params.id,customer:req.customer.id}, { status }, { new: true });
-        res.json(booking);
+        await Booking.findByIdAndDelete(req.params.id);
+        res.json({ msg: 'Booking deleted successfully' });
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
     }
 });
+
 
 module.exports = router;

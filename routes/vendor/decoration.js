@@ -1,6 +1,10 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const DecorationService = require('../../models/Decoration');
+const DecorationService = require("../../models/Decoration");
+const authVendor = require("../../middleware/authVendor");
+const Car = require("../../models/Car");
+const CateringService = require("../../models/Catering");
+const { sendNotification } = require("../../utils/notification");
 
 /**
  * @swagger
@@ -48,14 +52,37 @@ const DecorationService = require('../../models/Decoration');
  *       500:
  *         description: Server error
  */
-router.post('/create', async (req, res) => {
-    try {
-        const { vendorId, description, location, pricePerUnit, rating, numberOfReviews, images, serviceType, theme, availability } = req.body;
-        const decoration = await DecorationService.create({ vendorId, description, location, pricePerUnit, rating, numberOfReviews, images, serviceType, theme, availability });
-        res.status(201).json(decoration);
-    } catch (error) {
-        res.status(500).json({ message: 'Error creating decoration', error: error.message });
-    }
+router.post("/create",authVendor, async (req, res) => {
+  try {
+    const {title, description, location, price, images, theme } = req.body;
+    console.log("DECORATION", req.body);
+    const vendorId = req.vendor.id
+    const decoration = await DecorationService.create({
+      title,
+      vendorId,
+      description,
+      location,
+      price,
+      images,
+      theme,
+    });
+    await sendNotification(vendorId, "Vendor", "New Decoration Service Added", "A new decoration service has been added to your account", "service_added");
+    res.status(201).json({
+        id: decoration._id,
+        title: decoration.title,
+        description: decoration.description,
+        price: decoration.price,
+        imageUris: decoration.images,
+        additionalFields: {
+        Location: decoration.location,
+        Theme: decoration.theme,
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error creating decoration", error: error.message });
+  }
 });
 
 /**
@@ -70,13 +97,15 @@ router.post('/create', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/', async (req, res) => {
-    try {
-        const decorations = await DecorationService.find();
-        res.status(200).json(decorations);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching decorations', error: error.message });
-    }
+router.get("/", async (req, res) => {
+  try {
+    const decorations = await DecorationService.find();
+    res.status(200).json(decorations);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching decorations", error: error.message });
+  }
 });
 
 /**
@@ -98,14 +127,31 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/vendor/:vendorId', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const decorations = await DecorationService.find({ vendorId });
-        res.status(200).json(decorations);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching vendor decorations', error: error.message });
-    }
+router.get("/vendor",authVendor, async (req, res) => {
+  try {
+    const vendorId = req.vendor.id
+    const decorations = await DecorationService.find({ vendorId: vendorId });
+
+    // Transform the data to match ServiceCard format
+    const formattedDecorations = decorations.map((decoration) => ({
+      id: decoration._id,
+      title: decoration.title,
+      description: decoration.description,
+      price: decoration.price,
+      imageUris: decoration.images,
+      additionalFields: {
+        Location: decoration.location,
+        Theme: decoration.theme,
+      },
+    }));
+
+    res.status(200).json(formattedDecorations);
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching vendor decorations",
+      error: error.message,
+    });
+  }
 });
 
 /**
@@ -129,16 +175,18 @@ router.get('/vendor/:vendorId', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:id', async (req, res) => {
-    try {
-        const decoration = await DecorationService.findById(req.params.id);
-        if (!decoration) {
-            return res.status(404).json({ message: 'Decoration not found' });
-        }
-        res.status(200).json(decoration);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching decoration', error: error.message });
+router.get("/:id", async (req, res) => {
+  try {
+    const decoration = await DecorationService.findById(req.params.id);
+    if (!decoration) {
+      return res.status(404).json({ message: "Decoration not found" });
     }
+    res.status(200).json(decoration);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error fetching decoration", error: error.message });
+  }
 });
 
 /**
@@ -169,16 +217,40 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put('/:id', async (req, res) => {
-    try {
-        const decoration = await DecorationService.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!decoration) {
-            return res.status(404).json({ message: 'Decoration not found' });
-        }
-        res.status(200).json(decoration);
-    } catch (error) {
-        res.status(500).json({ message: 'Error updating decoration', error: error.message });
+router.put("/:id",authVendor, async (req, res) => {
+  try {
+    const vendorId = req.vendor.id
+    const decoration = await DecorationService.findById(req.params.id);
+    console.log("DECORATION", req.body);
+    if (!decoration) {
+      return res.status(404).json({ message: "Decoration not found" });
     }
+    if (decoration.vendorId.toString() !== vendorId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this decoration" });
+    }
+    const updatedDecoration = await DecorationService.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.status(200).json({
+        id: updatedDecoration._id,
+        title: updatedDecoration.title,
+        description: updatedDecoration.description,
+        price: updatedDecoration.price,
+        imageUris: updatedDecoration.images,
+        additionalFields: {
+        Location: updatedDecoration.location,
+        Theme: updatedDecoration.theme,
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error updating decoration", error: error.message });
+  }
 });
 
 /**
@@ -202,23 +274,25 @@ router.put('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.delete('/:id', async (req, res) => {
-    try {
-        const decoration = await DecorationService.findByIdAndDelete(req.params.id);
-        if (!decoration) {
-            return res.status(404).json({ message: 'Decoration not found' });
-        }
-        res.status(200).json({ message: 'Decoration deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting decoration', error: error.message });
+router.delete("/:id", authVendor,async (req, res) => {
+  try {
+    const vendorId = req.vendor.id
+    const decoration = await DecorationService.findById(req.params.id);
+    if (!decoration) {
+      return res.status(404).json({ message: "Decoration not found" });
     }
+    if (decoration.vendorId.toString() !== vendorId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this decoration" });
+    }
+    await DecorationService.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: "Decoration deleted successfully" });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Error deleting decoration", error: error.message });
+  }
 });
 
 module.exports = router;
-
-
-
-
-
-
-
