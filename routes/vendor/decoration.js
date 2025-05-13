@@ -55,7 +55,6 @@ const { sendNotification } = require("../../utils/notification");
 router.post("/create",authVendor, async (req, res) => {
   try {
     const {title, description, location, price, images, theme } = req.body;
-    console.log("DECORATION", req.body);
     const vendorId = req.vendor.id
     const decoration = await DecorationService.create({
       title,
@@ -221,7 +220,6 @@ router.put("/:id",authVendor, async (req, res) => {
   try {
     const vendorId = req.vendor.id
     const decoration = await DecorationService.findById(req.params.id);
-    console.log("DECORATION", req.body);
     if (!decoration) {
       return res.status(404).json({ message: "Decoration not found" });
     }

@@ -3,8 +3,6 @@ const Customer = require("../models/customer");
 
 const authCustomer = async (req, res, next) => {
   const token = req.cookies.token_customer;
-  console.log(token);
-  console.log(req.cookies);
   if (!token)
     return res.status(401).json({ msg: "No token, authorization denied" });
 
