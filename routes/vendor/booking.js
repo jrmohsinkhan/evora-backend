@@ -192,31 +192,27 @@ router.post("/", authVendor, async (req, res) => {
 });
 
 // Update a booking
-router.put("/:id", async (req, res) => {
+router.put("/", async (req, res) => {
   try {
     const {
-      serviceType,
       serviceId,
       bookingDate,
       eventStart,
       eventEnd,
-      location,
-      totalAmount,
+      status,
     } = req.body;
     const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
+      serviceId,
       {
-        serviceType,
-        service: serviceId,
         bookingDate,
         eventStart,
         eventEnd,
-        location,
-        totalAmount,
+        status,
       },
       { new: true }
     );
-    res.json(booking);
+    console.log(booking);
+    res.json({ booking, msg: "Booking updated successfully" , status: 200});
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: "Server error" });
