@@ -5,8 +5,8 @@ const router = express.Router();
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// POST /api/payment/create-payment-intent
-router.post("/create-payment-intent", async (req, res) => {
+// POST /api/payment/create-checkout-session
+router.post("/create-checkout-session", async (req, res) => {
   const { amount } = req.body;
 
   if (!amount || amount <= 0) {
@@ -14,20 +14,29 @@ router.post("/create-payment-intent", async (req, res) => {
   }
 
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // convert to cents if using USD
-      currency: "usd", // or your desired currency like 'pkr'
-      automatic_payment_methods: {
-        enabled: true,
-      },
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd", // or 'pkr'
+            product_data: {
+              name: "Service Booking",
+            },
+            unit_amount: amount * 100, // Convert to smallest unit (cents/paisa)
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: "https://evora-backend.onrender.com/success",
+      cancel_url: "https://evora-backend.onrender.com/cancel",
     });
 
-    res.status(200).json({
-      clientSecret: paymentIntent.client_secret,
-    });
+    res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error("Stripe error:", err);
-    res.status(500).json({ error: "Payment initiation failed" });
+    console.error("Stripe Checkout Error:", err);
+    res.status(500).json({ error: "Checkout session creation failed" });
   }
 });
 

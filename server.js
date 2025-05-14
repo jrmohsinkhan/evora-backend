@@ -27,11 +27,13 @@ app.use(passport.initialize());
 require("./config/passport")(passport);
 
 // Routes
-app.use('/api/customer', require('./routes/customer'));
-app.use('/api/vendor', require('./routes/vendor'));
-app.use('/api/reviews', require('./routes/reviews'));
-app.use('/api/notification', require('./routes/notification'));
+const paymentRoutes = require("./routes/customer/payment");
+app.use("/api/payment", paymentRoutes);
 
+app.use("/api/customer", require("./routes/customer"));
+app.use("/api/vendor", require("./routes/vendor"));
+app.use("/api/reviews", require("./routes/reviews"));
+app.use("/api/notification", require("./routes/notification"));
 // Swagger Documentation
 app.use(
   "/api-docs",
