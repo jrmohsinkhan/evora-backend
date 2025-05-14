@@ -29,7 +29,7 @@ router.post("/create-checkout-session", async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: "https://evora-backend.onrender.com/success",
+      success_url: "https://evora-backend.onrender.com/",
       cancel_url: "https://evora-backend.onrender.com/cancel",
     });
 
