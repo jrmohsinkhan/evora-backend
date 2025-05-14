@@ -32,7 +32,7 @@ router.get("/vendor", authVendor, async (req, res) => {
   try {
     const vendorId = req.vendor.id;
     const reviews = await Review.aggregate([
-      { $match: { vendorId: new mongoose.Types.ObjectId(vendorId) } },
+      { $match: { vendorId: new mongoose.Types.ObjectId(vendorId.toString()) } },
       {
         $lookup: {
           from: "users",
@@ -56,6 +56,7 @@ router.get("/vendor", authVendor, async (req, res) => {
     ]);
     res.status(200).json(reviews);
   } catch (e) {
+    console.log(e)
     res.status(500).json({ message: e.message });
   }
 });

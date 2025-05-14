@@ -233,7 +233,6 @@ router.get('/:id', async (req, res) => {
 router.put('/:id',authVendor, async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(req.body)
        const vendorId = req.vendor.id
         const {title,description,location,price,capacity,images,menus} = req.body;
         const existingHall = await Hall.findById(id)

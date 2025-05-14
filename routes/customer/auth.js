@@ -515,7 +515,6 @@ router.post("/reset-password/:token", async (req, res) => {
  */
 router.get("/profile", authCustomer, async (req, res) => {
   try {
-    console.log(req.customer);
     const customerId = req.customer.id;
 
     // Get customer data
@@ -525,7 +524,6 @@ router.get("/profile", authCustomer, async (req, res) => {
     if (!customer) {
       return res.status(404).json({ msg: "Customer not found" });
     }
-    console.log(customer);
 
     res.json(customer);
   } catch (err) {

@@ -8,7 +8,7 @@ const bookingSchema = new mongoose.Schema({
   },
   serviceType: {
     type: String,
-    enum: ['hall', 'catering', 'car'],
+    enum: ['hall', 'catering','decoration', 'car'],
     required: true,
   },
   service: {
