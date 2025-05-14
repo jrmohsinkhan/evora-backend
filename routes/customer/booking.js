@@ -52,8 +52,9 @@ router.post('/availability',async (req, res) => {
 // Create a new booking
 router.post('/', customerAuth, async (req, res) => {
     try {
-        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount } = req.body;
+        const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount,otherDetails } = req.body;
         const customerId = req.customer.id;
+        console.log("req.body", req.body);
         // Validate required fields
         if (!serviceType || !serviceId || !bookingDate || !eventStart || !eventEnd || !location || !totalAmount) {
             return res.status(400).json({ msg: 'All fields are required' });
@@ -126,7 +127,8 @@ router.post('/', customerAuth, async (req, res) => {
             eventStart,
             eventEnd,
             location,
-            totalAmount
+            totalAmount,
+            otherDetails
         });
 
         // Save the booking
@@ -143,7 +145,30 @@ router.post('/', customerAuth, async (req, res) => {
 router.get('/', customerAuth, async (req, res) => {
     try {
         const bookings = await Booking.find({ customer: req.customer.id });
-        res.json(bookings);
+        const bookingsWithService = await Promise.all(bookings.map(async (booking) => {
+            let service;
+            if(booking.serviceType === 'hall'){
+                service = await Hall.findById(booking.service);
+            }
+            else if(booking.serviceType === 'catering'){
+                service = await Catering.findById(booking.service);
+            }
+            else if(booking.serviceType === 'car'){
+                service = await Car.findById(booking.service);
+            }
+            else if(booking.serviceType === 'decoration'){
+                service = await Decoration.findById(booking.service);
+            }
+            
+            // Convert booking to plain object and add service details
+            const bookingObj = booking.toObject();
+            return {
+                ...bookingObj,
+                image: service ? service.image || service.images[0] : null
+            };
+        }));
+        
+        res.json(bookingsWithService);
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
