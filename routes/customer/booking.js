@@ -145,7 +145,30 @@ router.post('/', customerAuth, async (req, res) => {
 router.get('/', customerAuth, async (req, res) => {
     try {
         const bookings = await Booking.find({ customer: req.customer.id });
-        res.json(bookings);
+        const bookingsWithService = await Promise.all(bookings.map(async (booking) => {
+            let service;
+            if(booking.serviceType === 'hall'){
+                service = await Hall.findById(booking.service);
+            }
+            else if(booking.serviceType === 'catering'){
+                service = await Catering.findById(booking.service);
+            }
+            else if(booking.serviceType === 'car'){
+                service = await Car.findById(booking.service);
+            }
+            else if(booking.serviceType === 'decoration'){
+                service = await Decoration.findById(booking.service);
+            }
+            
+            // Convert booking to plain object and add service details
+            const bookingObj = booking.toObject();
+            return {
+                ...bookingObj,
+                image: service ? service.image || service.images[0] : null
+            };
+        }));
+        
+        res.json(bookingsWithService);
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });
