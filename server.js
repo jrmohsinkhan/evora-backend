@@ -27,7 +27,7 @@ app.use(passport.initialize());
 require("./config/passport")(passport);
 
 // Routes
-const paymentRoutes = require("./routes/payment");
+const paymentRoutes = require("./routes/customer/payment");
 app.use("/api/payment", paymentRoutes);
 
 app.use("/api/customer", require("./routes/customer"));
