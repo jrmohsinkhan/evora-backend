@@ -114,7 +114,6 @@ router.post("/create", authVendor,async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const caterings = await CateringService.find();
-    console.log(caterings)
     res.status(200).json(caterings);
   } catch (e) {
     res.status(500).json({ message: e.message });

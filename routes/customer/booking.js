@@ -5,10 +5,11 @@ const Hall = require('../../models/Hall');
 const Catering = require('../../models/Catering');
 const Car = require('../../models/Car');
 const Booking = require('../../models/Booking');
+const Decoration = require('../../models/Decoration');
 
-router.get('/availability', customerAuth, async (req, res) => {
+router.post('/availability',async (req, res) => {
     try {
-        const { serviceType, serviceId, eventStart, eventEnd } = req.query;
+        const { serviceType, serviceId, eventStart, eventEnd } = req.body;
         const existingBookings = await Booking.find({
             service: serviceId,
             serviceType: serviceType,
@@ -31,21 +32,21 @@ router.get('/availability', customerAuth, async (req, res) => {
                 }
             ]
         });
-
         if (existingBookings.length > 0) {
-            return res.status(400).json({ 
+            return res.status(200).json({ 
                 msg: 'This time slot is already booked. Please choose a different time.',
+                status: false,
                 existingBookings: existingBookings.map(booking => ({
                     start: booking.eventStart,
                     end: booking.eventEnd
                 }))
             });
         }
-        res.json({ msg: 'This time slot is available' });
+        res.status(200).json({ msg: 'This time slot is available', status: true });
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ msg: 'Server error' });
+        res.status(500).json({ msg: 'Server error' ,status: false});
     }
 });
 // Create a new booking
@@ -69,6 +70,9 @@ router.post('/', customerAuth, async (req, res) => {
                 break;
             case 'car':
                 service = await Car.findById(serviceId);
+                break;
+            case 'decoration':
+                service = await Decoration.findById(serviceId);
                 break;
             default:
                 return res.status(400).json({ msg: 'Invalid service type' });
@@ -128,7 +132,7 @@ router.post('/', customerAuth, async (req, res) => {
         // Save the booking
         await booking.save();
 
-        res.status(201).json(booking);
+        res.status(201).json({msg: "Booking created successfully", booking, status: true});
     } catch (err) {
         console.error(err);
         res.status(500).json({ msg: 'Server error' });

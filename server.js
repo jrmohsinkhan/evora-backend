@@ -3,13 +3,15 @@ const connectDB = require("./config/db");
 const passport = require("passport");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./utils/swagger");
-require("dotenv").config();
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+require("dotenv").config();
 
 const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   cors({
     origin: "http://localhost:8081", // Replace with your frontend URL
@@ -23,16 +25,6 @@ connectDB();
 // Passport Middleware
 app.use(passport.initialize());
 require("./config/passport")(passport);
-
-app.use(
-  cors({
-    origin: "http://localhost:8081",
-    credentials: true,
-  })
-);
-
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
 
 // Routes
 const paymentRoutes = require("./routes/payment");
