@@ -42,7 +42,6 @@ router.post('/availability',async (req, res) => {
                 }))
             });
         }
-        console.log("Available");
         res.status(200).json({ msg: 'This time slot is available', status: true });
 
     } catch (err) {
