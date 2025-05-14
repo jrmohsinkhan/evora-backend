@@ -7,6 +7,7 @@ const Decoration = require("../../models/Decoration");
 const Booking = require("../../models/Booking");
 const Customer = require("../../models/customer");
 const authVendor = require("../../middleware/authVendor");
+const { default: mongoose } = require("mongoose");
 
 router.get("/", authVendor, async (req, res) => {
   try {
@@ -61,9 +62,8 @@ router.post("/", authVendor, async (req, res) => {
       totalAmount,
       customerName,
       customerEmail,
-      customerPhone,
     } = req.body;
-    const vendorId = req.vendor._id;
+    const vendorId = req.vendor.id;
 
     // Validate required fields
     if (
@@ -78,8 +78,17 @@ router.post("/", authVendor, async (req, res) => {
       return res.status(400).json({ msg: "All service fields are required" });
     }
 
+    // Create Date objects by combining bookingDate with eventStart and eventEnd times
+    const startDateTime = new Date(bookingDate);
+    const [startHours, startMinutes] = eventStart.split(':');
+    startDateTime.setHours(parseInt(startHours), parseInt(startMinutes), 0, 0);
+
+    const endDateTime = new Date(bookingDate);
+    const [endHours, endMinutes] = eventEnd.split(':');
+    endDateTime.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
+
     // Validate customer data
-    if (!customerName || !customerEmail || !customerPhone) {
+    if (!customerName || !customerEmail ) {
       return res.status(400).json({ msg: "Customer information is required" });
     }
 
@@ -105,7 +114,8 @@ router.post("/", authVendor, async (req, res) => {
     if (!service) {
       return res.status(404).json({ msg: "Service not found" });
     }
-    if (service.vendorId !== vendorId) {
+    const serviceVendorId = service.vendorId.toString()
+    if (serviceVendorId!== vendorId.toString()) {
       return res
         .status(403)
         .json({ msg: "You are not authorized to book this service" });
@@ -119,18 +129,18 @@ router.post("/", authVendor, async (req, res) => {
       $or: [
         // Check if new booking starts during an existing booking
         {
-          eventStart: { $lte: eventStart },
-          eventEnd: { $gt: eventStart },
+          eventStart: { $lte: startDateTime },
+          eventEnd: { $gt: startDateTime },
         },
         // Check if new booking ends during an existing booking
         {
-          eventStart: { $lt: eventEnd },
-          eventEnd: { $gte: eventEnd },
+          eventStart: { $lt: endDateTime },
+          eventEnd: { $gte: endDateTime },
         },
         // Check if new booking completely contains an existing booking
         {
-          eventStart: { $gte: eventStart },
-          eventEnd: { $lte: eventEnd },
+          eventStart: { $gte: startDateTime },
+          eventEnd: { $lte: endDateTime },
         },
       ],
     });
@@ -153,37 +163,45 @@ router.post("/", authVendor, async (req, res) => {
       customer = new Customer({
         name: customerName,
         email: customerEmail,
-        phone: customerPhone,
+        phone: "",
         isVerified: true, // Since this is an offline booking
       });
       await customer.save();
     }
 
-    // Create the booking
+    // Create the booking with proper Date objects
     const booking = new Booking({
       customer: customer._id,
       serviceType,
       service: serviceId,
       vendor: service.vendorId,
-      bookingDate,
-      eventStart,
-      eventEnd,
+      bookingDate: new Date(bookingDate),
+      eventStart: startDateTime,
+      eventEnd: endDateTime,
       location,
       totalAmount,
-      status: "confirmed", // Since this is an offline booking
-      paymentStatus: "paid", // Assuming offline payment is already made
+      status: "confirmed",
+      paymentStatus: "paid",
     });
 
     // Save the booking
     await booking.save();
 
     res.status(201).json({
-      booking,
-      customer: {
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone,
-      },
+      status:true,
+      booking:{
+      id: booking._id,
+      name: customerName,
+      email: customerEmail,
+      phone: "",
+      service: booking.service,
+      serviceType: booking.serviceType,
+      bookingDate: booking.bookingDate,
+      status: booking.status,
+      startTime: booking.eventStart,
+      endTime: booking.eventEnd,
+      date: booking.bookingDate,
+      }
     });
   } catch (err) {
     console.error(err);
@@ -211,7 +229,6 @@ router.put("/", async (req, res) => {
       },
       { new: true }
     );
-    console.log(booking);
     res.json({ booking, msg: "Booking updated successfully" , status: 200});
   } catch (err) {
     console.error(err);
