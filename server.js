@@ -16,6 +16,7 @@ app.use(
   cors({
     origin: "http://localhost:8081", // Replace with your frontend URL
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
 );
 
