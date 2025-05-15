@@ -54,7 +54,6 @@ router.post('/', customerAuth, async (req, res) => {
     try {
         const { serviceType, serviceId, bookingDate, eventStart, eventEnd, location, totalAmount,otherDetails } = req.body;
         const customerId = req.customer.id;
-        console.log("req.body", req.body);
         // Validate required fields
         if (!serviceType || !serviceId || !bookingDate || !eventStart || !eventEnd || !location || !totalAmount) {
             return res.status(400).json({ msg: 'All fields are required' });
