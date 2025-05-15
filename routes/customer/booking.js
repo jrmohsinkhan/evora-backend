@@ -135,7 +135,7 @@ router.post('/', customerAuth, async (req, res) => {
         await booking.save();
 
         await sendNotification(service.vendorId, "Vendor", "New Booking", "A new booking has been made", "booking_created");
-
+        await sendNotification(customerId, "Customer", "New Booking", "A new booking has been made", "booking_created");
         res.status(201).json({msg: "Booking created successfully", booking, status: true});
     } catch (err) {
         console.error(err);

@@ -65,7 +65,6 @@ router.post("/", authVendor, async (req, res) => {
       customerEmail,
     } = req.body;
     const vendorId = req.vendor.id;
-
     // Validate required fields
     if (
       !serviceType ||
@@ -73,7 +72,6 @@ router.post("/", authVendor, async (req, res) => {
       !bookingDate ||
       !eventStart ||
       !eventEnd ||
-      !location ||
       !totalAmount
     ) {
       return res.status(400).json({ msg: "All service fields are required" });
@@ -187,7 +185,8 @@ router.post("/", authVendor, async (req, res) => {
 
     // Save the booking
     await booking.save();
-    await sendNotification(customer._id, "Customer", "New Booking", "A new booking has been made", "booking_created");
+    await sendNotification(service.vendorId.toString(), "Vendor", "New Booking", "A new booking has been made", "booking_added");
+    await sendNotification(customer._id, "Customer", "New Booking", "A new booking has been made", "booking_added");
 
 
     res.status(201).json({
