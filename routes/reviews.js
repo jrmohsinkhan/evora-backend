@@ -36,7 +36,7 @@ router.get("/vendor", authVendor, async (req, res) => {
       { $match: { vendorId: new mongoose.Types.ObjectId(vendorId.toString()) } },
       {
         $lookup: {
-          from: "users",
+          from: "customers",
           localField: "userId",
           foreignField: "_id",
           as: "user",
