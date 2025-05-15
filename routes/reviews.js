@@ -8,6 +8,7 @@ const Catering = require("../models/Catering");
 const Hall = require("../models/Hall");
 const Decoration = require("../models/Decoration");
 const authVendor = require("../middleware/authVendor");
+const authCustomer = require("../middleware/authCustomer");
 
 function calculateNewRating(currentRating, numberOfReviews, newRating) {
   return (currentRating * numberOfReviews + newRating) / (numberOfReviews + 1);
@@ -35,7 +36,7 @@ router.get("/vendor", authVendor, async (req, res) => {
       { $match: { vendorId: new mongoose.Types.ObjectId(vendorId.toString()) } },
       {
         $lookup: {
-          from: "users",
+          from: "customers",
           localField: "userId",
           foreignField: "_id",
           as: "user",
@@ -68,12 +69,12 @@ const serviceMap = {
   decoration: Decoration,
 };
 
-router.post("/:type/create", async (req, res) => {
+router.post("/:type/create", authCustomer, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
     const { type } = req.params;
-    const { serviceId, userId, rating, comment } = req.body;
+    const { serviceId, rating, comment } = req.body;
     const Service = serviceMap[type];
     if (!Service) throw new Error("Invalid service type");
 
@@ -85,7 +86,7 @@ router.post("/:type/create", async (req, res) => {
         {
           serviceId,
           vendorId: service.vendorId,
-          userId,
+          userId: req.customer.id,
           rating,
           comment,
           serviceType: type,
@@ -94,13 +95,16 @@ router.post("/:type/create", async (req, res) => {
       { session }
     );
 
-    service.rating = calculateNewRating(
-      service.rating || 0,
-      service.numberOfReviews || 0,
-      rating
-    );
-    service.numberOfReviews = (service.numberOfReviews || 0) + 1;
-    await service.save({ session });
+    const updateData = {
+      rating: calculateNewRating(
+        service.rating || 0,
+        service.numberOfReviews || 0,
+        rating
+      ),
+      numberOfReviews: (service.numberOfReviews || 0) + 1
+    };
+    
+    await Service.findByIdAndUpdate(serviceId, updateData, { session });
 
     const vendor = await Vendor.findById(service.vendorId);
     if (vendor) {
@@ -114,8 +118,9 @@ router.post("/:type/create", async (req, res) => {
     }
 
     await session.commitTransaction();
-    res.status(201).json(review[0]);
+    res.status(201).json({review: review[0], service});
   } catch (e) {
+    console.log(e)
     await session.abortTransaction();
     res
       .status(500)
@@ -128,7 +133,28 @@ router.post("/:type/create", async (req, res) => {
 router.get("/:type/:id", async (req, res) => {
   try {
     const { type, id } = req.params;
-    const reviews = await Review.find({ serviceId: id, serviceType: type });
+    const reviews = await Review.aggregate([
+      { $match: { serviceId: new mongoose.Types.ObjectId(id), serviceType: type } },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+      {
+        $project: {
+          rating: 1,
+          comment: 1,
+          createdAt: 1,
+          "user.name": 1,
+          "user.email": 1,
+          "user.profileImage": 1,
+        },
+      },
+    ]);
     res.status(200).json(reviews);
   } catch (e) {
     res.status(500).json({ message: e.message });
