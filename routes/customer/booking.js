@@ -6,6 +6,7 @@ const Catering = require('../../models/Catering');
 const Car = require('../../models/Car');
 const Booking = require('../../models/Booking');
 const Decoration = require('../../models/Decoration');
+const { sendNotification } = require('../../utils/notification');
 
 router.post('/availability',async (req, res) => {
     try {
@@ -132,6 +133,8 @@ router.post('/', customerAuth, async (req, res) => {
 
         // Save the booking
         await booking.save();
+
+        await sendNotification(service.vendorId, "Vendor", "New Booking", "A new booking has been made", "booking_created");
 
         res.status(201).json({msg: "Booking created successfully", booking, status: true});
     } catch (err) {

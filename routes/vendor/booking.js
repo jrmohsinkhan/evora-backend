@@ -8,6 +8,7 @@ const Booking = require("../../models/Booking");
 const Customer = require("../../models/customer");
 const authVendor = require("../../middleware/authVendor");
 const { default: mongoose } = require("mongoose");
+const { sendNotification } = require("../../utils/notification");
 
 router.get("/", authVendor, async (req, res) => {
   try {
@@ -186,6 +187,8 @@ router.post("/", authVendor, async (req, res) => {
 
     // Save the booking
     await booking.save();
+    await sendNotification(customer._id, "Customer", "New Booking", "A new booking has been made", "booking_created");
+
 
     res.status(201).json({
       status:true,
